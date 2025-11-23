@@ -40,6 +40,18 @@ def initialize_tables():
 
 
         # album表
+        # 修改表中错误的外键名字
+        """
+        ALTER TABLE album
+        DROP FOREIGN KEY Album_singer_id_id_a2beeda4_fk_Singer_singer_id;
+
+        ALTER TABLE album
+        CHANGE COLUMN singer_id_id singer_id INT NOT NULL;
+
+        ALTER TABLE album
+        ADD CONSTRAINT Album_singer_id_fk FOREIGN KEY (singer_id) REFERENCES singer(singer_id);
+        """,
+
         # 修复发行日期
         """
         ALTER TABLE album
@@ -56,6 +68,18 @@ def initialize_tables():
 
 
         # song表
+        # 修改表中错误的外键名字
+        """
+        ALTER TABLE song
+        DROP FOREIGN KEY Song_album_id_id_0b342a3e_fk_Album_album_id;
+
+        ALTER TABLE song
+        CHANGE COLUMN album_id_id album_id INT NOT NULL;
+
+        ALTER TABLE song
+        ADD CONSTRAINT Song_album_id_fk FOREIGN KEY (album_id) REFERENCES album(album_id);
+        """,
+
         # 修复歌曲总播放次数
         """
         ALTER TABLE song

@@ -1,21 +1,10 @@
 # 用户管理模块
-from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db import connection
 import datetime
-import hashlib
 import json
+from .tools import *
 
-# ================================
-# 工具函数
-# ================================
-# 密码哈希
-def hash_password(pw: str) -> str:
-    return hashlib.sha256(pw.encode('utf-8')).hexdigest()
-
-# 中文输出
-def json_cn(data, status=200):
-    return JsonResponse(data, status=status, json_dumps_params={'ensure_ascii': False})
 
 
 
@@ -36,9 +25,13 @@ def register(request):
     username = data.get("username")
     password = data.get("password")
 
-    # -------- 可选字段，但要处理默认值 --------
-    gender = data.get("gender")  
-    if not gender:
+    # -------- 可选字段，但要处理默认值 -------- 
+    if "gender" in data:
+        if data["gender"] not in ["男", "女", "其他"]:
+            return json_cn({"error": "非法性别，只能为：男/女/其他"}, 400)
+        else :
+            gender = data.get("gender")
+    else :
         gender = "其他"
 
     birthday = data.get("birthday", None)
@@ -138,7 +131,7 @@ def login(request):
         return json_cn({"error": "用户封禁中"}, 403)
 
     request.session["user_id"] = uid
-
+    
     return json_cn({"message": "登录成功", "user_id": uid})
 
 

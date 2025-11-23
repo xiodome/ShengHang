@@ -1,6 +1,7 @@
 # app/urls.py
 from django.urls import path
 from app.views import userManagement as user
+from app.views import singerAndMusic as miusic
 
 
 from django.http import HttpResponse
@@ -25,5 +26,14 @@ urlpatterns = [
     path("user/<int:uid>/get_followings/", user.get_followings),
     path("user/<int:uid>/get_followsingers/", user.get_followsingers),
     path("user/<int:uid>/get_user_info/", user.get_user_info),
+
+    # 歌手与音乐管理模块
+    path("Administrator/singer/admin_add_singer/", miusic.admin_add_singer),
+    path("Administrator/singer/admin_delete_singer/", miusic.admin_delete_singer),
+    path("singer/list_singers/", miusic.list_singers),
+    path("Administrator/singer/admin_add_album/", miusic.admin_add_album),
+    path("Administrator/singer/admin_delete_album/", miusic.admin_delete_album),
+    path("album/album_detail/", miusic.album_detail),
+
 ]
 

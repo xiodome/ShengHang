@@ -1,0 +1,26 @@
+# 存储各种工具方法
+from django.http import JsonResponse
+import hashlib
+
+# ================================
+# 工具函数
+# ================================
+# 密码哈希
+def hash_password(pw: str) -> str:
+    return hashlib.sha256(pw.encode('utf-8')).hexdigest()
+
+# 中文输出
+def json_cn(data, status=200):
+    return JsonResponse(data, status=status, json_dumps_params={'ensure_ascii': False})
+
+# 管理员权限检查
+def require_admin(request):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return False, json_cn({"error": "请先登录"}, 403)
+
+    if user_id != 1:
+        return False, json_cn({"error": "不是管理员"}, 403)
+
+    return True, None
+
