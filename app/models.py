@@ -14,7 +14,7 @@ class User(models.Model):
     ]
 
     user_id         = models.AutoField(primary_key=True,                                        verbose_name='用户编号')
-    user_name        = models.CharField(max_length=60, unique=True,                                verbose_name='用户名')
+    user_name       = models.CharField(max_length=60, unique=True,                                verbose_name='用户名')
     password        = models.CharField(max_length=64,                                       verbose_name='加密存储密码')
     gender          = models.CharField(max_length=2, choices=GENDER_CHOICES, default='其他',        verbose_name='性别')
     birthday        = models.DateField(null=True, blank=True,                                   verbose_name='出生日期')
@@ -252,3 +252,28 @@ class SystemLog(models.Model):
     class Meta:
         db_table = 'SystemLog'
 
+
+#删表sql指令
+#DROP TABLE singerfollow;
+#DROP TABLE songlist_song;
+#DROP TABLE song_singer;
+#DROP TABLE userfollow;
+#DROP TABLE comment;
+#DROP TABLE favorite;
+#DROP TABLE Playhistory;
+#DROP TABLE songlist;
+#DROP TABLE user;
+#DROP TABLE systemlog;
+#DROP TABLE song;
+#DROP TABLE album;
+#DROP TABLE singer;
+#DROP TABLE django_session;
+#DROP TABLE django_migrations;
+#DROP TABLE django_admin_log;
+#DROP TABLE auth_group_permissions;
+#DROP TABLE auth_user_groups;
+#DROP TABLE auth_group; 
+#DROP TABLE auth_user_user_permissions; 
+#DROP TABLE auth_user;
+#DROP TABLE auth_permission;
+#DROP TABLE django_content_type; 
