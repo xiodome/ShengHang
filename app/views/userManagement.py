@@ -47,121 +47,124 @@ def register(request):
             </form>
         """)
     
-    try:
-        data = json.loads(request.body)
-    except:
-        # 如果不是 JSON，则从 form-data 获取
-        data = request.POST
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except:
+            # 如果不是 JSON，则从 form-data 获取
+            data = request.POST
 
 
-    # ----------------------------
-    # 1. 数据获取
-    # ----------------------------
-    username = data.get("username")
-    password = data.get("password")
+        # ----------------------------
+        # 1. 数据获取
+        # ----------------------------
+        username = data.get("username")
+        password = data.get("password")
 
-    # -------- 可选字段，但要处理默认值 -------- 
-    # 需要处理的所有可选字段
-    optional_fields = ["gender", "birthday", "region", "email", "profile"]
+        # -------- 可选字段，但要处理默认值 -------- 
+        # 需要处理的所有可选字段
+        optional_fields = ["gender", "birthday", "region", "email", "profile"]
 
-    # 默认值
-    defaults = {
-        "gender": "其他",
-        "birthday": None,
-        "region": None,
-        "email": None,
-        "profile": None,
-    }
+        # 默认值
+        defaults = {
+            "gender": "其他",
+            "birthday": None,
+            "region": None,
+            "email": None,
+            "profile": None,
+        }
 
-    # 解析字段
-    cleaned = {}
-    for field in optional_fields:
-        value = data.get(field, defaults[field])
-        if value == "":
-            value = defaults[field]
-        cleaned[field] = value
+        # 解析字段
+        cleaned = {}
+        for field in optional_fields:
+            value = data.get(field, defaults[field])
+            if value == "":
+                value = defaults[field]
+            cleaned[field] = value
 
-    # 获得最终值
-    gender = cleaned["gender"]
-    birthday = cleaned["birthday"]
-    region = cleaned["region"]
-    email = cleaned["email"]
-    profile = cleaned["profile"]
+        # 获得最终值
+        gender = cleaned["gender"]
+        birthday = cleaned["birthday"]
+        region = cleaned["region"]
+        email = cleaned["email"]
+        profile = cleaned["profile"]
 
 
-    # ----------------------------
-    # 2. 基础校验
-    # ----------------------------
-    if not username or not password:
-        return HttpResponse("""
-                <h2>请输入用户名和密码</h2>
-                <p><a href="/user/register/">返回重新输入</a></p>
-                """)
-
-    if len(username) < 4:
-        return HttpResponse("""
-                <h2>用户名长度至少为4</h2>
-                <p><a href="/user/register/">返回重新输入</a></p>
-                """)
-
-    if len(password) < 6:
-        return HttpResponse("""
-                <h2>密码长度至少为6</h2>
-                <p><a href="/user/register/">返回重新输入</a></p>
-                """)
-
-    # ----------------------------
-    # 3. 禁止传入账号状态 status 和 register_time
-    # ----------------------------
-    if "status" in data:
-        return json_cn({"error": "status field is not allowed"}, 400)
-
-    if "register_time" in data:
-        return json_cn({"error": "register_time cannot be set manually"}, 400)
-    # ----------------------------
-    # 4. 检查用户名是否已存在
-    # ----------------------------
-    sql_check_name = "SELECT user_id FROM User WHERE user_name = %s"
-    with connection.cursor() as cursor:
-        cursor.execute(sql_check_name, [username])
-        if cursor.fetchone():
+        # ----------------------------
+        # 2. 基础校验
+        # ----------------------------
+        if not username or not password:
             return HttpResponse("""
-                        <h2>用户名已存在</h2>
-                        <p><a href="/user/register/">返回重新输入</a></p>
-                        """)
-
-    # ----------------------------
-    # 5. 检查邮箱是否唯一
-    # ----------------------------
-    if email:
-        sql_check_email = "SELECT user_id FROM User WHERE email = %s"
-        with connection.cursor() as cursor:
-            cursor.execute(sql_check_email, [email])
-            if cursor.fetchone():
-                return HttpResponse("""
-                    <h2>邮箱已存在</h2>
+                    <h2>请输入用户名和密码</h2>
                     <p><a href="/user/register/">返回重新输入</a></p>
                     """)
 
-    # ----------------------------
-    # 6. 插入用户（使用原生 SQL）
-    # ----------------------------
-    hashed_pw = hash_password(password)
+        if len(username) < 4:
+            return HttpResponse("""
+                    <h2>用户名长度至少为4</h2>
+                    <p><a href="/user/register/">返回重新输入</a></p>
+                    """)
 
-    sql_insert = """
-        INSERT INTO User (user_name, password, gender, birthday, region, email, profile)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-    """
+        if len(password) < 6:
+            return HttpResponse("""
+                    <h2>密码长度至少为6</h2>
+                    <p><a href="/user/register/">返回重新输入</a></p>
+                    """)
 
-    with connection.cursor() as cursor:
-        cursor.execute(sql_insert, [
-            username, hashed_pw, gender, birthday, region, email, profile
-        ])
-        
-    return HttpResponse("""
-            <h2>注册成功</h2>
-            <p><a href="/user/login/">登录账号</a></p>
-            """)
+        # ----------------------------
+        # 3. 禁止传入账号状态 status 和 register_time
+        # ----------------------------
+        if "status" in data:
+            return json_cn({"error": "status field is not allowed"}, 400)
+
+        if "register_time" in data:
+            return json_cn({"error": "register_time cannot be set manually"}, 400)
+        # ----------------------------
+        # 4. 检查用户名是否已存在
+        # ----------------------------
+        sql_check_name = "SELECT user_id FROM User WHERE user_name = %s"
+        with connection.cursor() as cursor:
+            cursor.execute(sql_check_name, [username])
+            if cursor.fetchone():
+                return HttpResponse("""
+                            <h2>用户名已存在</h2>
+                            <p><a href="/user/register/">返回重新输入</a></p>
+                            """)
+
+        # ----------------------------
+        # 5. 检查邮箱是否唯一
+        # ----------------------------
+        if email:
+            sql_check_email = "SELECT user_id FROM User WHERE email = %s"
+            with connection.cursor() as cursor:
+                cursor.execute(sql_check_email, [email])
+                if cursor.fetchone():
+                    return HttpResponse("""
+                        <h2>邮箱已存在</h2>
+                        <p><a href="/user/register/">返回重新输入</a></p>
+                        """)
+
+        # ----------------------------
+        # 6. 插入用户（使用原生 SQL）
+        # ----------------------------
+        hashed_pw = hash_password(password)
+
+        sql_insert = """
+            INSERT INTO User (user_name, password, gender, birthday, region, email, profile)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql_insert, [
+                username, hashed_pw, gender, birthday, region, email, profile
+            ])
+            
+        return HttpResponse("""
+                <h2>注册成功</h2>
+                <p><a href="/user/login/">登录账号</a></p>
+                """)
+    
+    return json_cn({"error": "GET or POST required"}, 400)
 
 
 
@@ -193,42 +196,55 @@ def login(request):
     # ----------------------------
     # 1. 数据获取
     # ----------------------------
-    try:
-        data = json.loads(request.body)  # 如果 body 是 JSON
-    except:
-        data = request.POST              # 如果是 form-data 自动 fall back
-    
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)  # 如果 body 是 JSON
+        except:
+            data = request.POST              # 如果是 form-data 自动 fall back
+        
 
-    username = data.get("username")
-    password = hash_password(data.get("password"))
+        username = data.get("username")
+        password = hash_password(data.get("password"))
 
 
-    # ----------------------------
-    # 2. 数据校验
-    # ----------------------------
-    sql = """SELECT user_id, status FROM User WHERE user_name=%s AND password=%s"""
-    
-    with connection.cursor() as cursor:
-        cursor.execute(sql, [username, password])
-        row = cursor.fetchone()
+        # ----------------------------
+        # 2. 数据校验
+        # ----------------------------
+        sql = """SELECT user_id, status FROM User WHERE user_name=%s AND password=%s"""
+        
+        with connection.cursor() as cursor:
+            cursor.execute(sql, [username, password])
+            row = cursor.fetchone()
 
-    if not row:
-        return json_cn({"error": "用户名或密码错误"}, 401)
+        if not row:
+            return json_cn({"error": "用户名或密码错误"}, 401)
 
-    uid, status = row
+        uid, status = row
 
-    if status == "封禁中":
+        if status == "封禁中":
+            return HttpResponse("""
+                <h2>用户封禁中</h2>
+                <p><a href="/user/login/">返回登录</a></p>
+            """)
+
+        request.session["user_id"] = uid
+
+        # ----------------------------
+        # 3. 特判管理员 user_id
+        # ----------------------------
+        if uid == ADMIN_USER_ID:
+            return HttpResponse(f"""
+                <h2>管理员登录成功</h2>
+                <p>欢迎管理员 {username} 登录！</p>
+                <p><a href="/Administrator/profile/">管理员界面</a></p>
+            """)
+        
         return HttpResponse("""
-            <h2>用户封禁种</h2>
-            <p><a href="/user/login/">返回登录</a></p>
-        """)
-
-    request.session["user_id"] = uid
+                <h2>登录成功</h2>
+                <p><a href="/user/profile/">个人界面</a></p>
+            """)
     
-    return HttpResponse("""
-            <h2>登录成功</h2>
-            <p><a href="/user/profile/">个人界面</a></p>
-        """)
+    return json_cn({"error": "GET or POST required"}, 400)
 
 
 
@@ -530,6 +546,9 @@ def profile(request):
         <p><strong>个人简介：</strong> {profile_text}</p>
 
         <br>
+        <p><a href="/singer/list_singers/">搜索歌手</a></p>
+        <p><a href="/album/album_detail/">搜索专辑</a></p>
+
         <p><a href="/user/get_user_info/">查看其他用户信息</a></p>
         <p><a href="/user/{user_id}/get_followers/">查看粉丝列表</a></p>
         <p><a href="/user/{user_id}/get_followsingers/">查看关注歌手列表</a></p>
@@ -911,7 +930,7 @@ def follow_singer(request):
                 <p><a href="/user/profile/">返回个人中心</a></p>
             """)
         
-        return json_cn({"error": "GET or POST required"}, 400)
+    return json_cn({"error": "GET or POST required"}, 400)
 
 
 
@@ -1186,3 +1205,42 @@ def get_user_info(request):
                 <p><strong>个人简介：</strong> {profile}</p>
                 <p><a href="/user/profile/">返回个人中心</a></p>
             """)
+    
+    return json_cn({"error": "GET or POST required"}, 400)
+
+# ================================
+# 5. 管理员界面
+# ================================
+# http://127.0.0.1:8000/Administrator/profile/
+ADMIN_USER_ID = 1  # 你可以改成实际管理员 id
+@csrf_exempt
+def admin_profile(request):
+    # --------------------------
+    # 1. 登录校验
+    # --------------------------
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return HttpResponse("""
+            <h2>请先登录</h2>
+            <p><a href="/user/login/">点击前往登录</a></p>
+        """)
+    elif user_id != ADMIN_USER_ID :
+        return HttpResponse("""
+            <h2>不是管理员账号！</h2>
+            <p><a href="/user/login/">点击前往登录</a></p>
+        """)
+    
+    # --------------------------
+    # 2. 显示管理员功能
+    # --------------------------
+    return HttpResponse(f"""
+        <h2>管理员界面</h2>
+        <ul>
+                <li><a href="/Administrator/singer/admin_add_singer/">添加歌手</a></li>
+                <li><a href="/Administrator/singer/admin_delete_singer/">删除歌手</a></li>
+                <li><a href="/Administrator/album/admin_add_album/">添加专辑</a></li>
+                <li><a href="/Administrator/album/admin_delete_album/">删除专辑</a></li>
+                <li><a href="/Administrator/song/admin_add_song/">添加歌曲</a></li>
+                <li><a href="/user/logout/">退出登录</a></li>
+        </ul>
+        """)

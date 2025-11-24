@@ -27,15 +27,16 @@ urlpatterns = [
     path("user/<int:uid>/get_followings/", user.get_followings),
     path("user/<int:uid>/get_followsingers/", user.get_followsingers),
     path("user/get_user_info/", user.get_user_info),
+    path("Administrator/profile/", user.admin_profile),
 
     # 歌手与音乐管理模块
     path("Administrator/singer/admin_add_singer/", miusic.admin_add_singer),
     path("Administrator/singer/admin_delete_singer/", miusic.admin_delete_singer),
     path("singer/list_singers/", miusic.list_singers),
-    path("Administrator/singer/admin_add_album/", miusic.admin_add_album),
-    path("Administrator/singer/admin_delete_album/", miusic.admin_delete_album),
+    path("Administrator/album/admin_add_album/", miusic.admin_add_album),
+    path("Administrator/album/admin_delete_album/", miusic.admin_delete_album),
     path("album/album_detail/", miusic.album_detail),
-    path("Administrator/singer/admin_add_song/", miusic.admin_add_song),
+    path("Administrator/song/admin_add_song/", miusic.admin_add_song),
 
 ]
 

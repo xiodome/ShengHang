@@ -10,77 +10,126 @@ from .tools import *
 # ================================
 # 1. 新增歌手（管理员权限）
 # ================================
-# 示例：
-# curl -X POST http://127.0.0.1:8000/Administrator/singer/admin_add_singer/ ^
-# -H "Content-Type: application/json" ^
-# -d "{\"singer_name\":\"周杰伦\", \"type\":\"男\", \"country\":\"中国\", \"birthday\":\"1979-01-18\", \"type\":\"男\", \"introduction\":\"周杰伦（Jay Chou），1979年1月18日出生于台湾省新北市，祖籍福建省永春县，华语流行乐男歌手、音乐人、演员、导演。\"}" ^
-# -b cookie.txt
+# http://127.0.0.1:8000/Administrator/singer/admin_add_singer/ 
 @csrf_exempt
 def admin_add_singer(request):
-    if request.method != "POST":
-        return json_cn({"error": "POST required"}, 400)
-
     # --------------------------
     # 1. 检查管理员状态
     # --------------------------
     ok, resp = require_admin(request)
     if not ok :
         return resp
-
-    # --------------------------
-    # 2. 获取歌手数据并校验
-    # --------------------------
-    data = json.loads(request.body)
-
-    if "type" in data:
-        singer_name = data.get("singer_name")
-    else :
-        return json_cn({"error": "未检测到歌手名称"}, 400)
     
-    if "type" in data:
-        if data["type"] not in ["男", "女", "组合"]:
-            return json_cn({"error": "非法类别，只能为：男/女/组合"}, 400)
+    if request.method == "GET":
+        # --------------------------
+        # 2. 展示添加歌手界面
+        # --------------------------
+        return HttpResponse("""
+            <h2>添加歌手</h2>
+            <form method="POST">
+                <label>歌手名：</label><br>
+                <input name="singer_name" required><br><br>
+
+                <label>歌手类别：</label>
+                    <input type="radio" name="type" value="男">男
+                    <input type="radio" name="type" value="女">女
+                    <input type="radio" name="type" value="组合">组合<br><br>
+                            
+                <label>国家：</label><br>
+                <input name="country"><br><br>
+
+                <label>生日：</label><br>
+                <input name="type" type="date"><br><br>
+                            
+                <label>歌手简介：</label><br>
+                <textarea name="introduction"></textarea><br><br>                            
+
+                <button type="submit">添加</button>
+                            
+                <p><a href="/Administrator/profile/">返回管理员界面</a></p>
+            </form>
+        """)
+
+    # --------------------------
+    # 3. 获取歌手数据并校验
+    # --------------------------
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except:
+            data = request.POST
+
+        if "singer_name" in data:
+            singer_name = data.get("singer_name")
         else :
-            type = data.get("type")
-    else :
-        return json_cn({"error": "未检测到歌手类别"}, 400)
+            return HttpResponse("""
+                <h2>未检测到歌手名称</h2>
+                <p><a href="/Administrator/singer/admin_add_singer/">返回重新输入</a></p>
+            """)
+        
 
-    # -------- 可选字段，但要处理默认值 --------
-    country = data.get("country", None)
-    birthday = data.get("birthday", None)
-    introduction = data.get("introduction", None)
+        if "type" in data:
+            type = data.get("type")     
+        else :
+            return HttpResponse("""
+            <h2>错误歌手类别</h2>
+            <p><a href="/Administrator/singer/admin_add_singer/">返回重新输入</a></p>
+        """)
 
-    # --------------------------
-    # 3. 正式添加歌手
-    # --------------------------
-    sql = """
-        INSERT 
-        INTO Singer (singer_name, type, country, birthday, introduction)
-        VALUES(%s, %s, %s, %s, %s)
-    """
+        # -------- 可选字段，但要处理默认值 -------- 
+        # 需要处理的所有可选字段
+        optional_fields = ["country", "birthday", "introduction"]
 
-    with connection.cursor() as cursor:
-        cursor.execute(sql, [
-            singer_name, type, country, birthday, introduction
-            ])
+        # 默认值
+        defaults = {
+            "country": None,
+            "birthday": None,
+            "introduction": None,
+        }
 
-    return json_cn({"message": "歌手已经添加"})
+        # 解析字段
+        cleaned = {}
+        for field in optional_fields:
+            value = data.get(field, defaults[field])
+            if value == "":
+                value = defaults[field]
+            cleaned[field] = value
+
+        # 获得最终值
+        country = cleaned["country"]
+        birthday = cleaned["birthday"]
+        introduction = cleaned["introduction"]
+
+
+        # --------------------------
+        # 4. 正式添加歌手
+        # --------------------------
+        sql = """
+            INSERT 
+            INTO Singer (singer_name, type, country, birthday, introduction)
+            VALUES(%s, %s, %s, %s, %s)
+        """
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql, [
+                singer_name, type, country, birthday, introduction
+                ])
+
+        return HttpResponse(f"""
+                <h2>成功添加歌手：{singer_name}</h2>
+                <p><a href="/Administrator/profile/">返回管理员界面</a></p>
+            """)
+    
+    return json_cn({"error": "GET or POST required"}, 400)
 
 
 
 # ================================
-# 1. 删除歌手（管理员权限）
+# 2. 删除歌手（管理员权限）
 # ================================
-# 示例：
-# curl -X POST http://127.0.0.1:8000/Administrator/singer/admin_delete_singer/ ^
-# -H "Content-Type: application/json" ^
-# -d {\"singer_id\":8} ^
-# -b cookie.txt
+# http://127.0.0.1:8000/Administrator/singer/admin_delete_singer/
 @csrf_exempt
 def admin_delete_singer(request):
-    if request.method != "POST":
-        return json_cn({"error": "POST required"}, 400)
-
     # --------------------------
     # 1. 检查管理员状态
     # --------------------------
@@ -89,15 +138,54 @@ def admin_delete_singer(request):
         return resp
 
 
-    # --------------------------
-    # 2. 获取歌手id并校验
-    # --------------------------
-    data = json.loads(request.body)
-    singer_id = data["singer_id"]
+    if request.method == "GET":
+        # --------------------------
+        # 2. 展示删除歌手界面
+        # --------------------------
+        return HttpResponse("""
+            <h2>删除歌手</h2>
+            <form method="POST">
+                <label>歌手名：</label><br>
+                <input name="singer_name" required><br><br>
+                            
+                <label>歌手id：</label><br>
+                <input name="singer_id" required><br><br>                          
 
-    if not singer_id :
-        json_cn({"error": "请输入歌手id"})
+                <button type="submit">删除</button>
+                            
+                <p><a href="/Administrator/profile/">返回管理员界面</a></p>
+            </form>
+        """)
 
+    # --------------------------
+    # 3. 获取歌手id并校验
+    # --------------------------
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except:
+            data = request.POST   
+
+
+    if "singer_id" in data :
+        singer_id = data.get("singer_id")
+    else :
+        return HttpResponse("""
+                <h2>未检测到歌手id</h2>
+                <p><a href="/Administrator/singer/admin_delete_singer/">返回重新输入</a></p>
+            """)
+    
+    if "singer_name" in data :
+        singer_name = data.get("singer_name")
+    else :
+        return HttpResponse("""
+                <h2>未检测到歌手名字</h2>
+                <p><a href="/Administrator/singer/admin_delete_singer/">返回重新输入</a></p>
+            """)
+    
+    # --------------------------
+    # 4. 检验歌手名字
+    # --------------------------
     name_sql = """
         SELECT singer_name
         FROM Singer 
@@ -108,12 +196,18 @@ def admin_delete_singer(request):
         row = cursor.fetchone()
     
     if row is None :
-        return json_cn({"error": "歌手不存在"}, 404)
-    
-    singer_name = row[0]
+        return HttpResponse("""
+                <h2>歌手不存在</h2>
+                <p><a href="/Administrator/singer/admin_delete_singer/">返回重新输入</a></p>
+            """)
+    elif singer_name != row[0] :
+        return HttpResponse("""
+                <h2>歌手名与要删除的歌手不匹配</h2>
+                <p><a href="/Administrator/singer/admin_delete_singer/">返回重新输入</a></p>
+            """)
 
     # --------------------------
-    # 3. 删除对应歌手
+    # 5. 删除对应歌手
     # --------------------------
 
     delete_sql = """
@@ -124,279 +218,469 @@ def admin_delete_singer(request):
     with connection.cursor() as cursor:
         cursor.execute(delete_sql, [singer_id])
 
-    return json_cn({
-    "message": "歌手删除成功",
-    "singer_id": singer_id,
-    "singer_name": singer_name
-})
+    return HttpResponse(f"""
+                <h2>歌手删除成功</h2><br>
+                <h2>歌手id:{singer_id} 歌手名:{singer_name}</h2>
+                <p><a href="/Administrator/profile/">返回管理员界面</a></p>
+            """)
 
 
 # ================================
-# 3. 查看歌手列表（支持过滤）
+# 3. 查看歌手列表
 # ================================
-# 示例：
-# curl -G http://127.0.0.1:8000/singer/list_singers/ ^
-# --data-urlencode "country=新加坡" ^
-# --data-urlencode "gender=男"
+# http://127.0.0.1:8000/singer/list_singers/ 
 @csrf_exempt
 def list_singers(request):
-    if request.method != "GET":
-        return json_cn({"error": "GET required"}, 400)
-
     # --------------------------
-    # 1. 获取筛选标签
+    # 1. 登录校验
     # --------------------------
-    filters = []
-    params = []
+    if "user_id" not in request.session:
+        return HttpResponse("""
+            <h3 style="color:red;">请先登录</h3>
+            <a href="/user/login/">去登录</a>
+        """)
+    
+    if request.method == "GET":
+        # --------------------------
+        # 2. 展示搜索歌手界面
+        # --------------------------
+        return HttpResponse("""
+            <h2>搜索歌手</h2>
+            <form method="POST">
+                <label>歌手名：(支持模糊搜索)</label><br>
+                <input name="singer_name"><br><br>
+                            
+                <label>歌手类别</label><br>
+                <input type="radio" name="type" value="">不限
+                <input type="radio" name="type" value="男">男
+                <input type="radio" name="type" value="女">女
+                <input type="radio" name="type" value="组合">组合<br><br>                         
 
-    type = request.GET.get("type")
-    country = request.GET.get("country")
-    singer_name = request.GET.get("singer_name")
+                <label>国家：</label><br>
+                <input type="text" name="country" placeholder="输入国家"><br><br>
+                            
+                <button type="submit">搜索</button>
+                            
+                <p><a href="/user/profile/">返回个人界面</a></p>
+            </form>
+        """)
 
-    if type:
-        filters.append("type = %s")
-        params.append(type)
-    if country:
-        filters.append("country = %s")
-        params.append(country)
-    if singer_name:
-        filters.append("singer_name LIKE %s")
-        params.append("%" + singer_name + "%")
 
-    # --------------------------
-    # 2. 正式查找歌手
-    # --------------------------
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except:
+            data = request.POST
 
-    where_clause = "WHERE " + " AND ".join(filters) if filters else ""
+        # --------------------------
+        # 3. 获取筛选标签
+        # --------------------------
+        filters = []
+        params = []
 
-    sql = f"""
-        SELECT singer_name, type, country
-        FROM Singer
-        {where_clause}
-        ORDER BY singer_name ASC
-    """
+        type = data.get("type")
+        country = data.get("country")
+        singer_name = data.get("singer_name")
 
-    with connection.cursor() as cursor:
-        cursor.execute(sql, params)
-        rows = cursor.fetchall()
+        if type and type != "":
+            filters.append("type = %s")
+            params.append(type)
+        if country and country != "":
+            filters.append("country = %s")
+            params.append(country)
+        if singer_name and singer_name != "":
+            filters.append("singer_name LIKE %s")
+            params.append("%" + singer_name + "%")
 
-    # ------------------------
-    # 3. 查询数量
-    # ------------------------
-    sql_count = f"""
-        SELECT COUNT(*)
-        FROM Singer
-        {where_clause}
-    """
+        # --------------------------
+        # 4. 正式查找歌手
+        # --------------------------
 
-    with connection.cursor() as cursor:
-        cursor.execute(sql_count, params)
-        total = cursor.fetchone()[0]
+        where_clause = "WHERE " + " AND ".join(filters) if filters else ""
 
-    # --------------------------
-    # 4. 输出查找结果
-    # --------------------------
+        sql = f"""
+            SELECT singer_name, type, country
+            FROM Singer
+            {where_clause}
+            ORDER BY singer_name ASC
+        """
 
-    # 转换为 JSON 格式
-    result = []
-    for r in rows:
-        result.append({
-            "singer_name": r[0],
-            "type": r[1],
-            "country": r[2],
-        })
-    return json_cn({"total": total, "singers": rows})
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+
+        # ------------------------
+        # 3. 查询数量
+        # ------------------------
+        sql_count = f"""
+            SELECT COUNT(*)
+            FROM Singer
+            {where_clause}
+        """
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql_count, params)
+            total = cursor.fetchone()[0]
+
+        # --------------------------
+        # 4. 输出查找结果
+        # --------------------------
+
+        # 转换为 JSON 格式
+        result = []
+        for r in rows:
+            result.append({
+                "singer_name": r[0],
+                "type": r[1],
+                "country": r[2],
+            })
+        singers_list= "".join(
+            f"<li>歌手名：{r['singer_name']} | 类型：{r['type']} | 国家：{r['country']}</li>" 
+            for r in result
+        )
+        return HttpResponse(f"""
+            <h2>歌手搜索结构</h2>
+            <h2>歌手数:{total}</h2>            
+            <ul>
+                {singers_list if singers_list else '<li>无符合条件歌手</li>'}
+            </ul>
+            <p><a href="/user/profile/">返回个人中心</a></p>
+        """)
+    
+    return json_cn({"error": "GET or POST required"}, 400)
 
 
 
 # ================================
 # 4. 新增专辑（管理员权限）
 # ================================
-# 示例：
-# curl -X POST http://127.0.0.1:8000/Administrator/singer/admin_add_album/ ^
-# -H "Content-Type: application/json" ^
-# -d @data.json ^
-# -b cookie.txt
+# http://127.0.0.1:8000/Administrator/album/admin_add_album/ ^
 @csrf_exempt
 def admin_add_album(request):
-    if request.method != "POST":
-        return json_cn({"error": "POST required"}, 400)
-
     # --------------------------
     # 1. 检查管理员状态
     # --------------------------
     ok, resp = require_admin(request)
-    if not ok:
+    if not ok :
         return resp
 
 
-    # --------------------------
-    # 2. 获取专辑数据并校验
-    # --------------------------
-    data = json.loads(request.body)
+    if request.method == "GET":
+        # --------------------------
+        # 2. 展示添加专辑界面
+        # --------------------------
+        return HttpResponse("""
+            <h2>添加专辑</h2>
+            <form method="POST">
+                <label>专辑名：</label><br>
+                <input name="album_title" required><br><br>
+                            
+                <label>歌手id：</label><br>
+                <input name="singer_id" required><br><br>  
+                            
+                <label>发行日期：</label><br>
+                <input name="release_date" type = "date"><br><br>
+                            
+                <label>封面url：</label><br>
+                <input name="cover_url"><br><br> 
+                                                    
+                <label>专辑介绍：</label><br>
+                <textarea name="description"></textarea><br><br>
+                            
+                <button type="submit">添加</button>
+                            
+                <p><a href="/Administrator/profile/">返回管理员界面</a></p>
+            </form>
+        """)
 
-    if "album_title" in data:
-        album_title = data.get("album_title")
-    else :
-        return json_cn({"error": "未检测到专辑名称"}, 400)
+
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except:
+            data = request.POST
+
+        # --------------------------
+        # 3. 获取专辑数据并校验
+        # --------------------------
+        if "album_title" in data:
+            album_title = data.get("album_title")
+        else :
+            return HttpResponse("""
+                <h2>未检测到专辑名称</h2>
+                <p><a href="/Administrator/album/admin_add_album/">返回重新输入</a></p>
+                """)
+        
+        if "singer_id" in data:
+            singer_id = data.get("singer_id")
+        else :
+            return HttpResponse("""
+                <h2>未检测到歌手id</h2>
+                <p><a href="/Administrator/album/admin_add_album/">返回重新输入</a></p>
+                """)
+        
+        sql_singer = """
+            SELECT singer_name FROM Singer WHERE singer_id = %s
+        """
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql_singer, [singer_id])
+            row = cursor.fetchone()
+
+        if not row:
+            return HttpResponse("""
+                <h2>歌手不存在</h2>
+                <p><a href="/Administrator/album/admin_add_album/">返回重新输入</a></p>
+            """)
+        else : 
+            singer_name = row[0]
+
+
+        # -------- 可选字段，但要处理默认值 -------- 
+        # 需要处理的所有可选字段
+        optional_fields = ["release_date", "cover_url", "description"]
+
+        # 默认值
+        defaults = {
+            "release_date": "1970-01-01",
+            "cover_url": "/images/default_album_cover.jpg",
+            "description": None,
+        }
+
+        # 解析字段
+        cleaned = {}
+        for field in optional_fields:
+            value = data.get(field, defaults[field])
+            if value == "":
+                value = defaults[field]
+            cleaned[field] = value
+
+        # 获得最终值
+        release_date = cleaned["release_date"]
+        cover_url = cleaned["cover_url"]
+        description = cleaned["description"]
+
+
+        # --------------------------
+        # 4. 正式添加专辑
+        # --------------------------
+
+        sql = """
+            INSERT INTO Album (album_title, singer_id, release_date, cover_url, description)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql, [
+                album_title, singer_id, release_date, cover_url, description,
+                ])
+
+        return HttpResponse(f"""
+                <h2>专辑已添加</h2><br>
+                <h2>专辑名称:{album_title} 歌手名:{singer_name}</h2>           
+                <p><a href="/Administrator/profile/">返回管理员界面</a></p>
+            """)
     
-    if "singer_id" in data:
-        singer_id = data.get("singer_id")
-    else :
-        return json_cn({"error": "未检测到歌手id"}, 400)
-
-    release_date = data.get("release_date", "1970-01-01")
-    cover_url = data.get("cover_url", "/images/default_album_cover.jpg")
-    description = data.get("description", None)
-
-
-    # --------------------------
-    # 3. 正式添加专辑
-    # --------------------------
-
-    sql = """
-        INSERT INTO Album (album_title, singer_id, release_date, cover_url, description)
-        VALUES (%s, %s, %s, %s, %s)
-    """
-
-    with connection.cursor() as cursor:
-        cursor.execute(sql, [
-            album_title, singer_id, release_date, cover_url, description,
-            ])
-
-    return json_cn({"message": "专辑已添加"})
+    return json_cn({"error": "GET or POST required"}, 400)
 
 
 
 # ================================
 # 5. 删除专辑（管理员权限）
 # ================================
-# 示例：
-# curl -X POST http://127.0.0.1:8000/Administrator/singer/admin_add_album/ ^
-# -H "Content-Type: application/json" ^
-# -d @data.json ^
-# -b cookie.txt
+# http://127.0.0.1:8000/Administrator/album/admin_delete_album/ 
 @csrf_exempt
 def admin_delete_album(request):
-    if request.method != "POST":
-        return json_cn({"error": "POST required"}, 400)
-
     # --------------------------
     # 1. 检查管理员状态
     # --------------------------
     ok, resp = require_admin(request)
-    if not ok:
+    if not ok :
         return resp
 
 
-    # --------------------------
-    # 2. 获取要删除的专辑数据
-    # --------------------------
-    data = json.loads(request.body)
+    if request.method == "GET":
+        # --------------------------
+        # 2. 展示删除专辑界面
+        # --------------------------
+        return HttpResponse("""
+            <h2>添加专辑</h2>
+            <form method="POST">
+                <label>专辑id：</label><br>
+                <input name="album_id" required><br><br>
+                            
+                <button type="submit">删除</button>
+                            
+                <p><a href="/Administrator/profile/">返回管理员界面</a></p>
+            </form>
+        """)
 
-    if "album_id" in data :
-        album_id = data.get("album_id")
-    else :
-        json_cn({"error": "请输入要删除的专辑id"}, 400)
+
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except:
+            data = request.POST
 
 
-    # --------------------------
-    # 3. 获取专辑标题
-    # --------------------------
-    name_sql = """
-        SELECT album_title
-        FROM Album 
-        WHERE album_id = %s      
-    """
-    with connection.cursor() as cursor:
-        cursor.execute(name_sql, [album_id])
-        row = cursor.fetchone()
-    
-    if row is None :
-        return json_cn({"error": "专辑不存在"}, 404)
-    
-    album_title = row[0]
+        # --------------------------
+        # 3. 获取要删除的专辑数据
+        # --------------------------
+        if "album_id" in data :
+            album_id = data.get("album_id")
+        else :
+            return HttpResponse("""
+                    <h2>未检测到专辑id</h2>
+                    <p><a href="/Administrator/album/admin_delete_album/">返回重新输入</a></p>
+                """)
 
-    # --------------------------
-    # 4. 正式删除专辑
-    # --------------------------
-    sql = "DELETE FROM Album WHERE album_id = %s"
+        # --------------------------
+        # 4. 获取专辑标题
+        # --------------------------
+        name_sql = """
+            SELECT album_title
+            FROM Album 
+            WHERE album_id = %s      
+        """
+        with connection.cursor() as cursor:
+            cursor.execute(name_sql, [album_id])
+            row = cursor.fetchone()
+        
+        if row is None :
+            return HttpResponse("""
+                    <h2>专辑不存在</h2>
+                    <p><a href="/Administrator/album/admin_delete_album/">返回重新输入</a></p>
+                """)
+        
+        album_title = row[0]
 
-    with connection.cursor() as cursor:
-        cursor.execute(sql, [album_id])
+        # --------------------------
+        # 5. 正式删除专辑
+        # --------------------------
+        sql = "DELETE FROM Album WHERE album_id = %s"
 
-    return json_cn({
-        "message": "专辑删除成功",
-        "album_id": album_id,
-        "album_title": album_title
-    })
+        with connection.cursor() as cursor:
+            cursor.execute(sql, [album_id])
+
+        return HttpResponse(f"""
+                    <h2>专辑已删除</h2><br>
+                    <h2>专辑id:{album_id} 专辑名称:{album_title}</h2>           
+                    <p><a href="/Administrator/profile/">返回管理员界面</a></p>
+                """)
+
+    return json_cn({"error": "GET or POST required"}, 400)
 
 
 
 # ================================
 # 6. 查看专辑详情
 # ================================
-# 示例：
-# curl -G http://127.0.0.1:8000/album/album_detail/ ^
-# --data-urlencode "album_id=3" 
+# http://127.0.0.1:8000/album/album_detail/ 
 @csrf_exempt
 def album_detail(request):
-    if request.method != "GET":
-        return json_cn({"error": "GET required"}, 400)
+    # --------------------------
+    # 1. 登录校验
+    # --------------------------
+    if "user_id" not in request.session:
+        return HttpResponse("""
+            <h3 style="color:red;">请先登录</h3>
+            <a href="/user/login/">去登录</a>
+        """)
     
-    # --------------------------
-    # 1. 获取专辑id
-    # --------------------------
-    album_id = request.GET.get("album_id")
-    if not album_id :
-        return json_cn({"error": "请输入专辑id"}, 400)
-
-    # --------------------------
-    # 2. 查询专辑信息
-    # --------------------------
-    sql_album = """
-        SELECT *
-        FROM Album 
-        WHERE album_id = %s      
-    """
-
-    with connection.cursor() as cursor:
-        cursor.execute(sql_album, [album_id])
-        row = cursor.fetchone()
-
-    if not row:
-        return json_cn({"error": "未找到专辑", "album_id": album_id}, 404)
+    if request.method == "GET":
+        # --------------------------
+        # 2. 展示搜索专辑界面
+        # --------------------------
+        return HttpResponse("""
+            <h2>搜索专辑</h2>
+            <form method="POST">
+                <label>专辑名：(支持模糊搜索)</label><br>
+                <input name="album_name"><br><br>
+                                                     
+                <label>歌手名：(支持模糊搜索)</label><br>
+                <input name="singer_name"><br><br>
+                            
+                <button type="submit">搜索</button>
+                            
+                <p><a href="/user/profile/">返回个人界面</a></p>
+            </form>
+        """)
 
 
-    # --------------------------
-    # 3. 将信息转成字典
-    # --------------------------
-    album = {
-        "album_id": row[0],
-        "title": row[1],
-        "singer_id": row[2],
-        "release_date": row[3],
-        "cover_url": row[4],
-        "description": row[5]
-    }
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except:
+            data = request.POST
+    
+        # --------------------------
+        # 3. 获取搜索标签
+        # --------------------------
+        album_name = data.get("album_name", "").strip()
+        singer_name = data.get("singer_name", "").strip()
+
+        filters = []
+        params = []
+
+        if album_name:
+            filters.append("a.album_title LIKE %s")
+            params.append(f"%{album_name}%")
+        if singer_name:
+            filters.append("s.singer_name LIKE %s")
+            params.append(f"%{singer_name}%")
 
 
-    # --------------------------
-    # 4. 获取专辑总时长
-    # --------------------------
-    sql_sum = """
-        SELECT SUM(duration) 
-        FROM Song 
-        WHERE album_id=%s
-    """
+        # --------------------------
+        # 4. 查询专辑信息
+        # --------------------------
+        sql_album = """
+            SELECT a.album_title, s.singer_name, a.release_date, a.description, 
+                   IFNULL(SUM(song.duration), 0) AS total_duration
+            FROM Album a
+            JOIN Singer s ON a.singer_id = s.singer_id
+            LEFT JOIN Song song ON song.album_id = a.album_id
+        """
 
-    with connection.cursor() as cursor:
-        cursor.execute(sql_sum, [album_id])
-        total = cursor.fetchone()[0]
+        if filters:
+            sql_album += " WHERE " + " AND ".join(filters)
 
-    album["total_duration"] = total if total else 0
+        sql_album += " GROUP BY a.album_id"
 
-    return json_cn(album)
+        with connection.cursor() as cursor:
+            cursor.execute(sql_album, params)
+            rows = cursor.fetchall()
+
+
+        if not rows:
+            HttpResponse(f"""
+                    <h2>未找到符合条件专辑</h2><br>          
+                    <p><a href="/user/profile/">返回个人界面</a></p>
+                """)
+
+
+        # --------------------------
+        # 5. 将信息转成HTML
+        # --------------------------
+        albums_html = ""
+        for r in rows:
+            album_title, singer_name, release_date, description, total_duration = r
+            minutes = total_duration // 60
+            seconds = total_duration % 60
+            albums_html += (
+                f"<li>专辑名：{album_title} | 歌手名：{singer_name} | "
+                f" 发行日期：{release_date} | 专辑总时长：{minutes}分{seconds}秒 |<br>"
+                f" 专辑简介：{description} | </li>"
+            )
+
+        return HttpResponse(f"""
+            <h2>搜索结果</h2>
+            <ul>
+                {albums_html}
+            </ul>
+            <p><a href="/user/profile/">返回个人界面</a></p>
+        """)
+    
+    return json_cn({"error": "GET or POST required"}, 400)
 
 
 
@@ -404,18 +688,22 @@ def album_detail(request):
 # ================================
 # 7. 添加歌曲（管理员权限）
 # ================================
-# 示例：
-# curl -X POST http://127.0.0.1:8000/Administrator/singer/admin_add_song/ ^
-# -H "Content-Type: application/json" ^
-# -d @data.json ^
-# -b cookie.txt
+# http://127.0.0.1:8000/Administrator/song/admin_add_song/ 
 @csrf_exempt
 def admin_add_song(request):
-    if request.method != "POST" and request.method != "GET":
-        return json_cn({"error": "POST or GET required"}, 400)
+    # --------------------------
+    # 1. 检查管理员状态
+    # --------------------------
+    ok, resp = require_admin(request)
+    if not ok:
+        return resp
+
+    
     
     if request.method == "GET":
-        # 返回一个简单的 HTML 表单
+        # --------------------------
+        # 2. 展示添加歌曲界面
+        # --------------------------
         return HttpResponse("""
             <h2>添加歌曲</h2>
             <form method="POST">
@@ -425,8 +713,8 @@ def admin_add_song(request):
                 <label>专辑ID：</label><br>
                 <input name="album_id" type="number"><br><br>
 
-                <label>时长（秒）：</label><br>
-                <input name="duration" type="number"><br><br>
+                <label>时长（分:秒，例如 3:25）：</label><br>
+                <input name="duration" type="text" placeholder="mm:ss"><br><br>
 
                 <label>文件URL：</label><br>
                 <input name="file_url"><br><br>
@@ -435,6 +723,8 @@ def admin_add_song(request):
                 <input name="singers_id"><br><br>
 
                 <button type="submit">提交</button>
+                            
+                <p><a href="/Administrator/profile/">返回管理员界面</a></p>
             </form>
         """)
     
@@ -446,85 +736,111 @@ def admin_add_song(request):
             data = request.POST
 
 
-    # --------------------------
-    # 1. 检查管理员状态
-    # --------------------------
-    ok, resp = require_admin(request)
-    if not ok:
-        return resp
+        # --------------------------
+        # 3. 获取歌曲数据并校验
+        # --------------------------
+        if "song_title" in data:
+            song_title = data.get("song_title")
+        else :
+            return HttpResponse("""
+                <h2>未检测到歌曲名称</h2>
+                <p><a href="/user/login/">重新填写</a></p>
+                <p><a href="/Administrator/singer/admin_add_song/">返回重新输入</a></p>
+            """)
+        
+        if "album_id" in data:
+            album_id = data.get("album_id")
+        else :
+            return HttpResponse("""
+                <h2>未检测到所属专辑id</h2>
+                <p><a href="/user/login/">重新填写</a></p>
+                <p><a href="/Administrator/singer/admin_add_song/">返回重新输入</a></p>
+            """)
+        
+        if "duration" in data:
+            try:
+                # 支持 mm:ss 或 m:ss
+                minutes, seconds = map(int, data.get("duration").strip().split(":"))
+                duration_seconds = minutes * 60 + seconds
+            except Exception:
+                return HttpResponse("""
+                    <h2>歌曲时长格式错误</h2>
+                    <p><a href="/user/login/">重新填写</a></p>
+                    <p><a href="/Administrator/singer/admin_add_song/">返回重新输入</a></p>
+                """)
+        else :
+            return HttpResponse("""
+                <h2>未检测到歌曲时长</h2>
+                <p><a href="/user/login/">重新填写</a></p>
+                <p><a href="/Administrator/singer/admin_add_song/">返回重新输入</a></p>
+            """)
+        
+        if "file_url" in data:
+            file_url = data.get("file_url")
+        else :
+            return HttpResponse("""
+                <h2>未检测到歌曲文件路径</h2>
+                <p><a href="/user/login/">重新填写</a></p>
+                <p><a href="/Administrator/singer/admin_add_song/">返回重新输入</a></p>
+            """)
 
 
-    # --------------------------
-    # 2. 获取歌曲数据并校验
-    # --------------------------
-    data = json.loads(request.body)
+        # --------------------------
+        # 4. 正式添加歌曲
+        # --------------------------
+        sql_insert_song = """
+            INSERT INTO Song (song_title, album_id, duration, file_url)
+            VALUES (%s, %s, %s, %s)
+        """
 
-    if "song_title" in data:
-        song_title = data.get("song_title")
-    else :
-        return json_cn({"error": "未检测到歌曲名称"}, 400)
-    
-    if "album_id" in data:
-        album_id = data.get("album_id")
-    else :
-        return json_cn({"error": "未检测到所属专辑id"}, 400)
-    
-    if "duration" in data:
-        duration = data.get("duration")
-    else :
-        return json_cn({"error": "未检测到歌曲时长"}, 400)
-    
-    if "file_url" in data:
-        file_url = data.get("file_url")
-    else :
-        return json_cn({"error": "未检测到歌曲文件路径"}, 400)
+        with connection.cursor() as cursor:
+            cursor.execute(sql_insert_song, [
+                song_title, album_id, duration_seconds, file_url
+                ])
+        
+            # 获取新插入的 song_id
+            cursor.execute("SELECT LAST_INSERT_ID()")
+            song_id = cursor.fetchone()[0]
 
 
-    # --------------------------
-    # 3. 正式添加歌曲
-    # --------------------------
-    sql_insert_song = """
-        INSERT INTO Song (song_title, album_id, duration, file_url)
-        VALUES (%s, %s, %s, %s)
-    """
-
-    with connection.cursor() as cursor:
-        cursor.execute(sql_insert_song, [
-            song_title, album_id, duration, file_url
-            ])
-    
-        # 获取新插入的 song_id
-        cursor.execute("SELECT LAST_INSERT_ID()")
-        song_id = cursor.fetchone()[0]
-
-
-    # --------------------------
-    # 4. 完善歌曲-歌手关系
-    # --------------------------
-    # 获取 singers_id
-    if "singers_id" in data:
-        singers_id = data.get("singers_id")
-    else :
-        return json_cn({"error": "未检测到歌曲的歌手id"}, 400)
-    
-    # 不是列表则自动改成单元素列表
-    if not isinstance(singers_id, list):
-        singers_id = [singers_id]
+        # --------------------------
+        # 5. 完善歌曲-歌手关系
+        # --------------------------
+        # 获取 singers_id
+        if "singers_id" in data:
+            singers_id = data.get("singers_id")
+        else :
+            return HttpResponse("""
+                <h2>未检测到歌曲的歌手id</h2>
+                <p><a href="/user/login/">重新填写</a></p>
+                <p><a href="/Administrator/singer/admin_add_song/">返回重新输入</a></p>
+            """)
+        
+        # 不是列表则自动改成单元素列表
+        if not isinstance(singers_id, list):
+            singers_id = [singers_id]
 
 
-    # 插入多对多关系
-    sql_insert_m2m = """
-        INSERT INTO Song_Singer (song_id, singer_id)
-        VALUES (%s, %s)
-    """
+        # 插入多对多关系
+        sql_insert_m2m = """
+            INSERT INTO Song_Singer (song_id, singer_id)
+            VALUES (%s, %s)
+        """
 
-    with connection.cursor() as cursor:
-        for singer_id in singers_id:
-            cursor.execute(sql_insert_m2m, [song_id, singer_id])
+        with connection.cursor() as cursor:
+            for singer_id in singers_id:
+                cursor.execute(sql_insert_m2m, [song_id, singer_id])
 
-    return json_cn({"message": "歌曲已添加", 
-                    "song_id": song_id,
-                    "singers_id": singers_id})
+        singers_str = ", ".join(str(sid) for sid in singers_id)
+        return HttpResponse(f"""
+                <h2>歌曲已添加</h2>
+                <p><strong>歌曲名：</strong> {song_title}</p>
+                <p><strong>歌曲id：</strong> {song_id}</p>
+                <p><strong>歌手id：</strong> {singers_str}</p>
+                <p><a href="/Administrator/singer/admin_add_song/">返回重新输入</a></p>
+            """)
+
+    return json_cn({"error": "GET or POST required"}, 400)
 
 
 
