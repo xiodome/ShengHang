@@ -2,6 +2,7 @@
 
 from django.db import connection
 from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpResponse
 import json
 from .tools import *
 
@@ -403,10 +404,47 @@ def album_detail(request):
 # ================================
 # 7. 添加歌曲（管理员权限）
 # ================================
+# 示例：
+# curl -X POST http://127.0.0.1:8000/Administrator/singer/admin_add_song/ ^
+# -H "Content-Type: application/json" ^
+# -d @data.json ^
+# -b cookie.txt
 @csrf_exempt
 def admin_add_song(request):
-    if request.method != "POST":
-        return json_cn({"error": "POST required"}, 400)
+    if request.method != "POST" and request.method != "GET":
+        return json_cn({"error": "POST or GET required"}, 400)
+    
+    if request.method == "GET":
+        # 返回一个简单的 HTML 表单
+        return HttpResponse("""
+            <h2>添加歌曲</h2>
+            <form method="POST">
+                <label>歌曲名：</label><br>
+                <input name="song_title"><br><br>
+
+                <label>专辑ID：</label><br>
+                <input name="album_id" type="number"><br><br>
+
+                <label>时长（秒）：</label><br>
+                <input name="duration" type="number"><br><br>
+
+                <label>文件URL：</label><br>
+                <input name="file_url"><br><br>
+
+                <label>歌手ID（用逗号分隔）：</label><br>
+                <input name="singers_id"><br><br>
+
+                <button type="submit">提交</button>
+            </form>
+        """)
+    
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except:
+            # 如果不是 JSON，则从 form-data 获取
+            data = request.POST
+
 
     # --------------------------
     # 1. 检查管理员状态
@@ -417,7 +455,7 @@ def admin_add_song(request):
 
 
     # --------------------------
-    # 2. 获取专辑数据并校验
+    # 2. 获取歌曲数据并校验
     # --------------------------
     data = json.loads(request.body)
 
@@ -446,7 +484,7 @@ def admin_add_song(request):
     # 3. 正式添加歌曲
     # --------------------------
     sql_insert_song = """
-        INSERT INTO Song (title, album_id, duration, file_url)
+        INSERT INTO Song (song_title, album_id, duration, file_url)
         VALUES (%s, %s, %s, %s)
     """
 
@@ -454,15 +492,25 @@ def admin_add_song(request):
         cursor.execute(sql_insert_song, [
             song_title, album_id, duration, file_url
             ])
-        
-
-    # --------------------------
-    # 4. 完善歌曲-歌手关系
-    # --------------------------
     
         # 获取新插入的 song_id
         cursor.execute("SELECT LAST_INSERT_ID()")
         song_id = cursor.fetchone()[0]
+
+
+    # --------------------------
+    # 4. 完善歌曲-歌手关系
+    # --------------------------
+    # 获取 singers_id
+    if "singers_id" in data:
+        singers_id = data.get("singers_id")
+    else :
+        return json_cn({"error": "未检测到歌曲的歌手id"}, 400)
+    
+    # 不是列表则自动改成单元素列表
+    if not isinstance(singers_id, list):
+        singers_id = [singers_id]
+
 
     # 插入多对多关系
     sql_insert_m2m = """
@@ -471,10 +519,12 @@ def admin_add_song(request):
     """
 
     with connection.cursor() as cursor:
-        for singer_id in data["singers"]:
+        for singer_id in singers_id:
             cursor.execute(sql_insert_m2m, [song_id, singer_id])
 
-    return json_cn({"message": "歌曲已添加", "song_id": song_id})
+    return json_cn({"message": "歌曲已添加", 
+                    "song_id": song_id,
+                    "singers_id": singers_id})
 
 
 
