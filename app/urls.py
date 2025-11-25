@@ -2,6 +2,7 @@
 from django.urls import path
 from app.views import userManagement as user
 from app.views import singerAndMusic as miusic
+from app.views import favoriteAndSonglist as favorite
 
 
 from django.http import HttpResponse
@@ -39,6 +40,15 @@ urlpatterns = [
     path("Administrator/song/admin_add_song/", miusic.admin_add_song),
     path("Administrator/song/admin_delete_song/", miusic.admin_delete_song),
     path("song/song_detail/", miusic.song_detail),
-    
+
+    # 收藏与歌单模块
+    path("songlist/create_songlist/", favorite.create_songlist),
+    path("songlist/edit_songlist/<int:songlist_id>/", favorite.edit_songlist),
+    path("songlist/profile/<int:songlist_id>/", favorite.songlist_profile),
+    path("songlist/delete_songlist/<int:songlist_id>/", favorite.delete_songlist),
+    path("songlist/list_songlists/", favorite.list_songlists),
+    path("songlist/<int:songlist_id>/add_song/", favorite.songlist_add_song),
+    path("songlist/<int:songlist_id>/delete_song/<int:song_id>/", favorite.songlist_delete_song),
+
 ]
 

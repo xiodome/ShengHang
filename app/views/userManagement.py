@@ -217,7 +217,10 @@ def login(request):
             row = cursor.fetchone()
 
         if not row:
-            return json_cn({"error": "用户名或密码错误"}, 401)
+            return HttpResponse("""
+                <h2>用户名或密码错误</h2>
+                <p><a href="/user/login/">返回重新输入</a></p>
+            """, status=400)
 
         uid, status = row
 
@@ -546,6 +549,8 @@ def profile(request):
         <p><strong>个人简介：</strong> {profile_text}</p>
 
         <br> 
+        <p><a href="/songlist/list_songlists/">我的歌单</a></p>
+
         <p><a href="/song/song_detail/">搜索歌曲</a></p>
         <p><a href="/singer/list_singers/">搜索歌手</a></p>
         <p><a href="/album/album_detail/">搜索专辑</a></p>

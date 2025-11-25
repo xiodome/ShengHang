@@ -24,3 +24,7 @@ def require_admin(request):
 
     return True, None
 
+
+# 把秒转成 mm:ss 格式
+def format_time(sec):
+    return f"{sec // 60}:{sec % 60:02d}"
