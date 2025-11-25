@@ -23,7 +23,9 @@ urlpatterns = [
     path("user/profile/<int:owner_id>/", user.profile),
     path("user/update_profile/", user.update_profile),
     path("user/follow_user/", user.follow_user),
+    path("user/unfollow_user/", user.unfollow_user),
     path("user/follow_singer/", user.follow_singer),
+    path("user/unfollow_singer/", user.unfollow_singer),
     path("user/<int:uid>/get_followers/", user.get_followers),
     path("user/<int:uid>/get_followings/", user.get_followings),
     path("user/<int:uid>/get_followsingers/", user.get_followsingers),
@@ -34,7 +36,7 @@ urlpatterns = [
     path("music/", miusic.music),
     path("Administrator/singer/admin_add_singer/", miusic.admin_add_singer),
     path("Administrator/singer/admin_delete_singer/", miusic.admin_delete_singer),
-    path("singer/search_singers/", miusic.search_singers),
+    path("singer/search_singer/", miusic.search_singer),
     path("singer/profile/<int:singer_id>/", miusic.singer_profile),
     path("Administrator/album/admin_add_album/", miusic.admin_add_album),
     path("Administrator/album/admin_delete_album/", miusic.admin_delete_album),
@@ -54,6 +56,8 @@ urlpatterns = [
     path("songlist/<int:songlist_id>/add_song/", favorite.songlist_add_song),
     path("songlist/<int:songlist_id>/delete_song/<int:song_id>/", favorite.songlist_delete_song),
     path("songlist/sort_songlist/<int:songlist_id>/", favorite.sort_songlist),
+
+    path("favorite/add_favorite/", favorite.add_favorite),
 
 
 

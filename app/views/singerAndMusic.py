@@ -8,7 +8,7 @@ from .tools import *
 
 
 # ================================
-# 0. 音乐中心
+# 1. 音乐中心
 # ================================
 # http://127.0.0.1:8000/music/
 @csrf_exempt
@@ -36,7 +36,7 @@ def music(request):
 
 
 # ================================
-# 1. 新增歌手（管理员权限）
+# 2. 新增歌手（管理员权限）
 # ================================
 # http://127.0.0.1:8000/Administrator/singer/admin_add_singer/ 
 @csrf_exempt
@@ -153,7 +153,7 @@ def admin_add_singer(request):
 
 
 # ================================
-# 2. 删除歌手（管理员权限）
+# 3. 删除歌手（管理员权限）
 # ================================
 # http://127.0.0.1:8000/Administrator/singer/admin_delete_singer/
 @csrf_exempt
@@ -254,11 +254,11 @@ def admin_delete_singer(request):
 
 
 # ================================
-# 3. 搜索歌手
+# 4. 搜索歌手
 # ================================
-# http://127.0.0.1:8000/singer/search_singers/ 
+# http://127.0.0.1:8000/singer/search_singer/ 
 @csrf_exempt
-def search_singers(request):
+def search_singer(request):
     # --------------------------
     # 1. 登录校验
     # --------------------------
@@ -268,11 +268,13 @@ def search_singers(request):
             <a href="/user/login/">去登录</a>
         """)
     
+    user_id = request.session["user_id"]
+    
     if request.method == "GET":
         # --------------------------
         # 2. 展示搜索歌手界面
         # --------------------------
-        return HttpResponse("""
+        return HttpResponse(f"""
             <h2>搜索歌手</h2>
             <form method="POST">
                 <label>歌手名：(支持模糊搜索)</label><br>
@@ -289,7 +291,7 @@ def search_singers(request):
                             
                 <button type="submit">搜索</button>
                             
-                <p><a href="/user/profile/">返回个人界面</a></p>
+                <p><a href="/music/">返回音乐中心</a></p>
             </form>
         """)
 
@@ -373,7 +375,7 @@ def search_singers(request):
         return HttpResponse(f"""
             <h2>歌手搜索结果</h2>
             <p>符合条件歌手数:<strong>{total}</strong></p>
-            <p><a href="/user/profile/">返回个人中心</a></p>
+            <p><a href="/music/">返回音乐中心</a></p>
 
             <hr>
             {singers_html}
@@ -386,7 +388,7 @@ def search_singers(request):
 
 
 # ================================
-# 4. 歌手详情
+# 5. 歌手详情
 # ================================
 # http://127.0.0.1:8000/singer/profile/3/
 @csrf_exempt
@@ -400,7 +402,7 @@ def singer_profile(request, singer_id):
             <p><a href="/user/login/">返回登录</a></p>
         """, status=403)
 
-    uid = request.session["user_id"]
+    user_id = request.session["user_id"]
 
     # --------------------------
     # 2. 查询歌手信息
@@ -417,7 +419,7 @@ def singer_profile(request, singer_id):
     if not row:
         return HttpResponse("""
             <h2>歌手不存在</h2>
-            <p><a href="/singer/list_singers/">返回歌手列表</a></p>
+            <p><a href="/singer/search_singer/">返回歌手列表</a></p>
         """, status=404)
 
     singer_name, type, country, birthday, introduction = row
@@ -503,7 +505,15 @@ def singer_profile(request, singer_id):
         <p>歌手生日：{birthday or "无"}</p>
         <p>歌手介绍：{introduction or "无"}</p>
         <p>歌曲数量：{len(song_rows)}</p>
-        <p><a href="/singer/list_singers/">返回歌手列表</a></p>
+
+
+        <form action="/user/follow_singer/" method="post">
+        <input type="hidden" name="singer_id" value="{ singer_id }">
+        <button type="submit">关注这个歌手</button>
+        </form>
+
+
+        <p><a href="/singer/search_singer/">返回歌手列表</a></p>
 
         <hr>
         <h3>歌手歌曲列表</h3>
@@ -518,7 +528,7 @@ def singer_profile(request, singer_id):
 
 
 # ================================
-# 5. 新增专辑（管理员权限）
+# 6. 新增专辑（管理员权限）
 # ================================
 # http://127.0.0.1:8000/Administrator/album/admin_add_album/ ^
 @csrf_exempt
@@ -652,7 +662,7 @@ def admin_add_album(request):
 
 
 # ================================
-# 6. 删除专辑（管理员权限）
+# 7. 删除专辑（管理员权限）
 # ================================
 # http://127.0.0.1:8000/Administrator/album/admin_delete_album/ 
 @csrf_exempt
@@ -739,7 +749,7 @@ def admin_delete_album(request):
 
 
 # ================================
-# 7. 搜索专辑
+# 8. 搜索专辑
 # ================================
 # http://127.0.0.1:8000/album/search_album/ 
 @csrf_exempt
@@ -752,12 +762,13 @@ def search_album(request):
             <h3 style="color:red;">请先登录</h3>
             <a href="/user/login/">去登录</a>
         """)
+    user_id = request.session["user_id"]
     
     if request.method == "GET":
         # --------------------------
         # 2. 展示搜索专辑界面
         # --------------------------
-        return HttpResponse("""
+        return HttpResponse(f"""
             <h2>搜索专辑</h2>
             <form method="POST">
                 <label>专辑名：(支持模糊搜索)</label><br>
@@ -768,7 +779,7 @@ def search_album(request):
                             
                 <button type="submit">搜索</button>
                             
-                <p><a href="/user/profile/">返回个人界面</a></p>
+                <p><a href="/music/">返回音乐中心</a></p>
             </form>
         """)
 
@@ -818,7 +829,7 @@ def search_album(request):
         if not rows:
             HttpResponse(f"""
                     <h2>未找到符合条件专辑</h2><br>          
-                    <p><a href="/user/profile/">返回个人界面</a></p>
+                    <p><a href="/user/profile/{user_id}/">返回个人界面</a></p>
                 """)
 
 
@@ -837,11 +848,12 @@ def search_album(request):
             """
 
         return HttpResponse(f"""
+            <p><a href="/music/">返回音乐中心</a></p>
+                            
             <h2>搜索结果</h2>
             <ul>
                 {albums_html}
             </ul>
-            <p><a href="/user/profile/">返回个人界面</a></p>
         """)
     
     return json_cn({"error": "GET or POST required"}, 400)
@@ -849,7 +861,7 @@ def search_album(request):
 
 
 # ================================
-# 8. 专辑详情
+# 9. 专辑详情
 # ================================
 # http://127.0.0.1:8000/album/profile/3/
 @csrf_exempt
@@ -863,7 +875,7 @@ def album_profile(request, album_id):
             <p><a href="/user/login/">返回登录</a></p>
         """, status=403)
 
-    uid = request.session["user_id"]
+    user_id = request.session["user_id"]
 
     # --------------------------
     # 2. 查询专辑信息
@@ -881,7 +893,7 @@ def album_profile(request, album_id):
     if not row:
         return HttpResponse("""
             <h2>专辑不存在</h2>
-            <p><a href="/album/album_detail/">返回专辑列表</a></p>
+            <p><a href="/album/search_album/">返回专辑列表</a></p>
         """, status=404)
 
     album_title, release_date, cover_url, descprition, singer_name, singer_id = row
@@ -958,7 +970,15 @@ def album_profile(request, album_id):
         <p>专辑描述：{descprition or "无"}</p>
         <p>歌曲数量：{len(song_rows)}</p>
         <p>专辑总时长：{min}:{sec}</p>
-        <p><a href="/album/album_detail/">返回专辑列表</a></p>
+
+        <form action="/favorite/add_favorite/" method="post">
+            <input type="hidden" name="type" value="album">
+            <input type="hidden" name="id" value="{ album_id }">
+            <button type="submit">收藏这个专辑</button>
+        </form>
+
+
+        <p><a href="/album/search_album/">返回专辑列表</a></p>
 
         <hr>
         <h3>专辑歌曲列表</h3>
@@ -971,7 +991,7 @@ def album_profile(request, album_id):
 
 
 # ================================
-# 9. 添加歌曲（管理员权限）
+# 10. 添加歌曲（管理员权限）
 # ================================
 # http://127.0.0.1:8000/Administrator/song/admin_add_song/ 
 @csrf_exempt
@@ -1128,7 +1148,7 @@ def admin_add_song(request):
 
 
 # ================================
-# 10. 删除歌曲（管理员权限）
+# 11. 删除歌曲（管理员权限）
 # ================================
 # http://127.0.0.1:8000/Administrator/song/admin_delete_song/ 
 @csrf_exempt
@@ -1238,7 +1258,7 @@ def admin_delete_song(request):
 
 
 # ================================
-# 11. 搜索歌曲
+# 12. 搜索歌曲
 # ================================
 # http://127.0.0.1:8000/song/search_song/ 
 @csrf_exempt
@@ -1252,13 +1272,12 @@ def search_song(request):
             <h2>请先登录</h2>
             <p><a href="/user/login/">点击前往登录</a></p>
         """)
-    
 
     if request.method == "GET":
         # --------------------------
         # 2. 展示搜索歌曲界面
         # --------------------------
-        return HttpResponse("""
+        return HttpResponse(f"""
             <h2>搜索歌曲</h2>
             <form method="POST">
                 <label>歌曲名：(支持模糊搜索)</label><br>
@@ -1272,7 +1291,7 @@ def search_song(request):
                             
                 <button type="submit">搜索</button>
                             
-                <p><a href="/user/profile/">返回个人界面</a></p>
+                <p><a href="/music/">返回音乐中心</a></p>
             </form>
         """)
 
@@ -1333,7 +1352,7 @@ def search_song(request):
             if not rows:
                 HttpResponse(f"""
                         <h2>未找到符合歌曲</h2><br>          
-                        <p><a href="/song/song_detail/">返回搜索界面</a></p>
+                        <p><a href="/song/search_song/">返回搜索界面</a></p>
                     """)
                 
             # --------------------------
@@ -1357,11 +1376,12 @@ def search_song(request):
                 """
 
         return HttpResponse(f"""
+            <p><a href="/music/">返回音乐中心</a></p>
+                            
             <h2>搜索结果</h2>
             <ul>
                 {songs_html}
             </ul>
-            <p><a href="/user/profile/">返回个人界面</a></p>
         """)
     
     return json_cn({"error": "GET or POST required"}, 400)
@@ -1370,7 +1390,7 @@ def search_song(request):
 
 
 # ================================
-# 12. 歌曲详情
+# 13. 歌曲详情
 # ================================
 # http://127.0.0.1:8000/song/profile/3/
 @csrf_exempt
@@ -1384,7 +1404,7 @@ def song_profile(request, song_id):
             <p><a href="/user/login/">返回登录</a></p>
         """, status=403)
 
-    uid = request.session["user_id"]
+    user_id = request.session["user_id"]
 
     # --------------------------
     # 2. 查询歌曲信息
@@ -1421,6 +1441,12 @@ def song_profile(request, song_id):
         <p>歌手：{singer_names}</a></p>
         <p>所属专辑：{album_title}</p>
         <p>时长：{format_time(duration)}</p>
-        <p><a href="/song/song_detail/">返回歌曲列表</a></p>
+        <p><a href="/song/search_song/">返回歌曲列表</a></p>
+
+        <form action="/favorite/add_favorite/" method="post">
+            <input type="hidden" name="type" value="song">
+            <input type="hidden" name="id" value="{ song_id }">
+            <button type="submit">收藏这首歌曲</button>
+        </form>
 
     """)

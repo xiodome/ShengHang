@@ -398,7 +398,7 @@ def delete_account(request):
 
 
 # ================================
-# 4. 修改密码
+# 5. 修改密码
 # ================================
 # 示例：访问
 # http://127.0.0.1:8000/user/change_password/
@@ -496,9 +496,9 @@ def change_password(request):
 
 
 # ================================
-# 5. 个人界面
+# 6. 个人界面
 # ================================
-# http://127.0.0.1:8000/user/profile/3/
+# http://127.0.0.1:8000/user/profile/5/
 @csrf_exempt
 def profile(request, owner_id):
     # --------------------------
@@ -550,6 +550,12 @@ def profile(request, owner_id):
         # 游客模式：只显示最基本内容
         function_html = f"""
             <p><em>您当前处于游客模式，仅可浏览基本信息。</em></p>
+
+            <form action="/user/follow_user/" method="post">
+            <input type="hidden" name="user_id" value="{ owner_id }">
+            <button type="submit">关注这个用户</button>
+            </form>
+
             <p><a href="/user/profile/{user_id}/">返回个人界面</a></p>
 
         """
@@ -560,12 +566,10 @@ def profile(request, owner_id):
 
             <p><a href="/songlist/list_songlists/">我的歌单</a></p>
 
-            <p><a href="/user/get_user_info/">查看其他用户信息</a></p>
             <p><a href="/user/{user_id}/get_followers/">查看粉丝列表</a></p>
             <p><a href="/user/{user_id}/get_followsingers/">查看关注歌手列表</a></p>
             <p><a href="/user/{user_id}/get_followings/">查看关注列表</a></p>
-            <p><a href="/user/follow_singer/">关注/取关歌手</a></p>
-            <p><a href="/user/follow_user/">关注/取关用户</a></p>
+            <br>
             <p><a href="/user/update_profile/">修改个人信息</a></p>
             <p><a href="/user/change_password/">修改密码</a></p>
             <p><a href="/user/delete_account/">注销账号</a></p>
@@ -591,8 +595,7 @@ def profile(request, owner_id):
 
 
 # ================================
-# 6. 修改个人信息
-# gender, birthday, region, profile 等
+# 7. 修改个人信息
 # ================================
 # http://127.0.0.1:8000/user/update_profile/ 
 @csrf_exempt
@@ -648,7 +651,7 @@ def update_profile(request):
             
 
         # --------------------------
-        # 2. 获取新个人信息并校验
+        # 3. 获取新个人信息并校验
         # --------------------------   
         fields = []
         values = []
@@ -680,7 +683,7 @@ def update_profile(request):
             """)
 
         # --------------------------
-        # 2. 更新个人信息
+        # 4. 更新个人信息
         # --------------------------
         sql_update = f"UPDATE User SET {', '.join(fields)} WHERE user_id=%s"
         values.append(uid)
@@ -700,9 +703,8 @@ def update_profile(request):
 
 
 # ================================
-# 6. 关注/取关用户
+# 8. 关注用户
 # ================================
-# 示例：
 # http://127.0.0.1:8000/user/follow_user/ 
 @csrf_exempt
 def follow_user(request):
@@ -717,27 +719,93 @@ def follow_user(request):
 
     follower = request.session["user_id"]
 
-    if request.method == "GET":
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except:
+            data = request.POST
 
         # --------------------------
-        # 2. 展示操作界面
+        # 2. 获取目标用户名并查询
         # --------------------------
+        target_user_id = data.get("user_id")
+
+        if not target_user_id:
+            return json_cn({"error": "请输入 user_id 参数"}, 400)
+
+    
+        sql_get_target = "SELECT 1 FROM User WHERE user_id=%s"
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql_get_target, [target_user_id])
+            row = cursor.fetchone()
+
+        if not row:
+            return HttpResponse(f"""
+                <h2>用户不存在</h2>
+                <p><a href="/user/profile/{target_user_id}/">返回用户详情页</a></p>
+            """)
+
+        # --------------------------
+        # 3. 不允许操作自己
+        # --------------------------
+        if target_user_id == follower:
+            return HttpResponse(f"""
+                <h2>不能对自己进行操作</h2>
+                <p><a href="/user/profile/{target_user_id}/">返回用户详情页</a></p>
+            """)
+
+        # --------------------------
+        # 4. 关注逻辑
+        # --------------------------
+
+        
+        # 检查是否已关注
+        sql_check = """
+            SELECT * FROM UserFollow
+            WHERE follower_id=%s AND followed_id=%s
+        """
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql_check, [follower, target_user_id])
+            if cursor.fetchone():
+                return HttpResponse(f"""
+                    <h2>已关注该用户</h2>
+                    <p><a href="/user/profile/{target_user_id}/">返回用户详情页</a></p>
+                """)
+
+        # 插入关注关系
+        sql_follow = """INSERT INTO UserFollow(follower_id, followed_id) 
+                        VALUES (%s, %s)"""
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql_follow, [follower, target_user_id])
+
         return HttpResponse(f"""
-            <h2>关注用户</h2>
-
-            <form method="POST">
-
-                <label>用户名：</label><br>
-                <input type="text" name="username" required><br><br>
-                            
-                <label>操作：</label>
-                    <input type="radio" name="action" value="follow">关注
-                    <input type="radio" name="action" value="unfollow">取关<br><br>
-
-                <button type="submit">执行</button>
-                <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
-            </form>
+            <h2>关注成功</h2>
+            <p><a href="/user/profile/{target_user_id}/">返回用户详情页</a></p>
         """)
+
+    return json_cn({"error": "POST required"}, 400)
+
+
+
+# ================================
+# 9. 取关用户
+# ================================
+# http://127.0.0.1:8000/user/unfollow_user/ 
+@csrf_exempt
+def unfollow_user(request):
+    # --------------------------
+    # 1. 登录校验
+    # --------------------------
+    if "user_id" not in request.session:
+        return HttpResponse("""
+            <h3 style="color:red;">请先登录</h3>
+            <a href="/user/login/">去登录</a>
+        """)
+
+    follower = request.session["user_id"]
 
     if request.method == "POST":
         try:
@@ -748,97 +816,70 @@ def follow_user(request):
         # --------------------------
         # 2. 获取目标用户名并查询
         # --------------------------
-        target_username = data.get("username")
-        action = data.get("action")  # follow / unfollow
+        target_user_id = data.get("user_id")
 
-        if not target_username or not action:
-            return json_cn({"error": "请输入 username 或 action 参数"}, 400)
+        if not target_user_id:
+            return json_cn({"error": "请输入 user_id 参数"}, 400)
 
     
-        sql_get_target = "SELECT user_id FROM User WHERE user_name=%s"
+        sql_get_target = "SELECT 1 FROM User WHERE user_id=%s"
 
         with connection.cursor() as cursor:
-            cursor.execute(sql_get_target, [target_username])
+            cursor.execute(sql_get_target, [target_user_id])
             row = cursor.fetchone()
 
         if not row:
             return HttpResponse(f"""
                 <h2>用户不存在</h2>
-                <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
+                <p><a href="/user/{follower}/get_followings/">返回关注列表</a></p>
             """)
-
-        target_uid = row[0]
 
         # --------------------------
         # 3. 不允许操作自己
         # --------------------------
-        if target_uid == follower:
+        if target_user_id == follower:
             return HttpResponse(f"""
                 <h2>不能对自己进行操作</h2>
-                <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
-            """)
-
-        # --------------------------
-        # 3. 关注逻辑
-        # --------------------------
-
-        if action == "follow":
-            # 检查是否已关注
-            sql_check = """
-                SELECT * FROM UserFollow
-                WHERE follower_id=%s AND followed_id=%s
-            """
-
-            with connection.cursor() as cursor:
-                cursor.execute(sql_check, [follower, target_uid])
-                if cursor.fetchone():
-                    return HttpResponse(f"""
-                        <h2>已关注该用户</h2>
-                        <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
-                    """)
-
-            # 插入关注关系
-            sql_follow = """INSERT INTO UserFollow(follower_id, followed_id) 
-                            VALUES (%s, %s)"""
-
-            with connection.cursor() as cursor:
-                cursor.execute(sql_follow, [follower, target_uid])
-
-            return HttpResponse(f"""
-                <h2>关注成功</h2>
-                <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
+                <p><a href="/user/{follower}/get_followings/">返回关注列表</a></p>
             """)
 
         # --------------------------
         # 4. 取关逻辑
         # --------------------------
-        elif action == "unfollow":
-            sql_unfollow = """
-                DELETE FROM UserFollow
-                WHERE follower_id=%s AND followed_id=%s
-            """
+        # 检查是否未关注
+        sql_check = """
+            SELECT * FROM UserFollow
+            WHERE follower_id=%s AND followed_id=%s
+        """
 
-            with connection.cursor() as cursor:
-                cursor.execute(sql_unfollow, [follower, target_uid])
-                if cursor.rowcount == 0:
-                    return HttpResponse(f"""
-                        <h2>未关注该用户不能取关</h2>
-                        <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
-                    """)
+        with connection.cursor() as cursor:
+            cursor.execute(sql_check, [follower, target_user_id])
+            if not cursor.fetchone():
+                return HttpResponse(f"""
+                    <h2>未关注该用户，不能取关</h2>
+                    <p><a href="/user/{follower}/get_followings/">返回关注列表</a></p>
+                """)
 
-            return HttpResponse(f"""
-                <h2>取关成功</h2>
-                <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
-            """)
+        # 插入关注关系
+        sql_follow = """DELETE FROM UserFollow 
+                    WHERE follower_id = %s AND followed_id = %s
+                """
 
-    return json_cn({"error": "GET or POST required"}, 400)
+        with connection.cursor() as cursor:
+            cursor.execute(sql_follow, [follower, target_user_id])
+
+        return HttpResponse(f"""
+            <h2>取关成功</h2>
+            <p><a href="/user/{follower}/get_followings/">返回关注列表</a></p>
+        """)
+
+    return json_cn({"error": "POST required"}, 400)
 
 
 
 # ================================
-# 7. 关注/取关歌手
+# 10. 关注歌手
 # ================================
-# 示例：
 # http://127.0.0.1:8000/user/follow_singer/ ^
 @csrf_exempt
 def follow_singer(request):
@@ -852,28 +893,6 @@ def follow_singer(request):
         """)
 
     follower = request.session["user_id"]
-
-    if request.method == "GET":
-
-        # --------------------------
-        # 2. 展示操作界面
-        # --------------------------
-        return HttpResponse(f"""
-            <h2>关注歌手</h2>
-
-            <form method="POST">
-
-                <label>歌手名：</label><br>
-                <input type="text" name="singer_name" required><br><br>
-                            
-                <label>操作：</label>
-                    <input type="radio" name="action" value="follow">关注
-                    <input type="radio" name="action" value="unfollow">取关<br><br>
-
-                <button type="submit">执行</button>
-                <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
-            </form>
-        """)
     
     if request.method == "POST":
         
@@ -882,89 +901,142 @@ def follow_singer(request):
         except:
             data = request.POST
         
-        singer = data.get("singer_name")
-        action = data.get("action") # follow / unfollow
+        singer_id = data.get("singer_id")
 
-        if not singer or not action:
-            return json_cn({"error": "请输入 singer_name 或 action 参数"}, 400)
+        if not singer_id:
+            return json_cn({"error": "请输入 singer_id"}, 400)
 
 
         # --------------------------
-        # 3. 查找目标歌手
+        # 2. 查找目标歌手
         # --------------------------
-        sql_get_target = "SELECT singer_id FROM Singer WHERE singer_name=%s"
+        sql_get_target = "SELECT 1 FROM Singer WHERE singer_id = %s"
 
         with connection.cursor() as cursor:
-            cursor.execute(sql_get_target, [singer])
-            row = cursor.fetchone()
+            cursor.execute(sql_get_target, [singer_id])
+            exist = cursor.fetchone()
 
-        if not row:
+        if not exist:
             return HttpResponse(f"""
                         <h2>目标歌手不存在</h2>
-                        <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
-                    """)
-
-        target_uid = row[0]
-
-        # --------------------------
-        # 4. 关注逻辑
-        # --------------------------
-        if action == "follow":
-            # 检查是否已关注
-            sql_check = """
-                SELECT * FROM SingerFollow
-                WHERE user_id=%s AND singer_id=%s
-            """
-
-            with connection.cursor() as cursor:
-                cursor.execute(sql_check, [follower, target_uid])
-                if cursor.fetchone():
-                    return HttpResponse(f"""
-                        <h2>已关注该歌手</h2>
-                        <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
-                    """)
-
-            # 插入关注关系
-            sql_follow = """INSERT INTO SingerFollow(user_id, singer_id) 
-                            VALUES (%s, %s)"""
-
-            with connection.cursor() as cursor:
-                cursor.execute(sql_follow, [follower, target_uid])
-
-            return HttpResponse(f"""
-                        <h2>关注成功</h2>
-                        <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
+                        <p><a href="/singer/profile/{singer_id}/">返回详情页</a></p>
                     """)
 
         # --------------------------
-        # 5. 取关逻辑
+        # 3. 关注逻辑
         # --------------------------
-        elif action == "unfollow":
-            sql_unfollow = """
-                DELETE FROM SingerFollow
-                WHERE user_id=%s AND singer_id=%s
-            """
+        # 检查是否已关注
+        sql_check = """
+            SELECT * FROM SingerFollow
+            WHERE user_id=%s AND singer_id=%s
+        """
 
-            with connection.cursor() as cursor:
-                cursor.execute(sql_unfollow, [follower, target_uid])
-                if cursor.rowcount == 0:
-                    return HttpResponse(f"""
-                        <h2>未关注该歌手不能取关</h2>
-                        <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
-                    """)
+        with connection.cursor() as cursor:
+            cursor.execute(sql_check, [follower, singer_id])
+            if cursor.fetchone():
+                return HttpResponse(f"""
+                    <h2>已关注该歌手</h2>
+                    <p><a href="/singer/profile/{singer_id}/">返回详情页</a></p>
+                """)
 
-            return HttpResponse(f"""
-                <h2>取关成功</h2>
-                <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
-            """)
+        # 插入关注关系
+        sql_follow = """INSERT INTO SingerFollow(user_id, singer_id) 
+                        VALUES (%s, %s)"""
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql_follow, [follower, singer_id])
+
+        return HttpResponse(f"""
+                    <h2>关注成功</h2>
+                    <p><a href="/singer/profile/{singer_id}/">返回详情页</a></p>
+                """)
         
-    return json_cn({"error": "GET or POST required"}, 400)
+    return json_cn({"error": "POST required"}, 400)
+
+
+
+# ================================
+# 11. 取关歌手
+# ================================
+# http://127.0.0.1:8000/user/unfollow_singer/ ^
+@csrf_exempt
+def unfollow_singer(request):
+    # --------------------------
+    # 1. 登录校验
+    # --------------------------
+    if "user_id" not in request.session:
+        return HttpResponse("""
+            <h3 style="color:red;">请先登录</h3>
+            <a href="/user/login/">去登录</a>
+        """)
+
+    follower = request.session["user_id"]
+    
+    if request.method == "POST":
+        
+        try:
+            data = json.loads(request.body)
+        except:
+            data = request.POST
+        
+        singer_id = data.get("singer_id")
+
+        if not singer_id:
+            return json_cn({"error": "请输入 singer_id"}, 400)
+
+
+        # --------------------------
+        # 2. 查找目标歌手
+        # --------------------------
+        sql_get_target = "SELECT 1 FROM Singer WHERE singer_id = %s"
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql_get_target, [singer_id])
+            exist = cursor.fetchone()
+
+        if not exist:
+            return HttpResponse(f"""
+                        <h2>目标歌手不存在</h2>
+                        <p><a href="/user/{follower}/get_followsingers/">返回关注页</a></p>
+                    """)
+
+        # --------------------------
+        # 3. 取关逻辑
+        # --------------------------
+        # 检查是否已关注
+        sql_check = """
+            SELECT * FROM SingerFollow
+            WHERE user_id=%s AND singer_id=%s
+        """
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql_check, [follower, singer_id])
+            if not cursor.fetchone():
+                return HttpResponse(f"""
+                    <h2>未关注该歌手</h2>
+                    <p><a href="/user/{follower}/get_followsingers/">返回关注页</a></p>
+                """)
+
+        # 删除关注关系
+        sql_follow = """DELETE FROM SingerFollow
+                    WHERE user_id = %s AND singer_id = %s        
+                """
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql_follow, [follower, singer_id])
+
+        return HttpResponse(f"""
+                    <h2>取关成功</h2>
+                    <p><a href="/user/{follower}/get_followsingers/">返回关注页</a></p>
+                """)
+        
+    return json_cn({"error": "POST required"}, 400)
 
 
 
 
 # ================================
-# 8. 查看关注用户列表
+# 12. 查看关注用户列表
 # ================================
 # curl -X GET http://127.0.0.1:8000/user/10/get_followings/ 
 @csrf_exempt
@@ -989,7 +1061,7 @@ def get_followings(request, uid):
     # 2. 查询关注列表和总数
     # --------------------------
     sql = """
-        SELECT u.user_name
+        SELECT u.user_name, u.user_id
         FROM UserFollow uf
         JOIN User u ON uf.followed_id = u.user_id
         WHERE uf.follower_id = %s
@@ -1014,12 +1086,23 @@ def get_followings(request, uid):
     # 3. 展示关注列表和总数
     # --------------------------
     if request.method == "GET":
-        following_list = "".join([f"<li>{r[0]}</li>" for r in rows])
+        following_html = ""
+        for username, user_id in rows :
+            following_html += f"""
+                <p>{username} <a href="/user/profile/{user_id}/">用户信息</a></p>
+                <form action="/user/unfollow_user/" method="post">
+                <input type="hidden" name="user_id" value="{ user_id }">
+                <button type="submit">取关</button>
+                </form>
+            """
+        if following_html == "":
+            following_html = "<li>暂无关注用户</li>" 
+
         return HttpResponse(f"""
             <h2>关注列表</h2>
             <p>关注数：{total_count}</p>
             <ul>
-                {following_list if following_list else '<li>暂无关注用户</li>'}
+                {following_html}
             </ul>
             <p><a href="/user/profile/{login_user_id}/">返回个人中心</a></p>
         """)
@@ -1029,7 +1112,7 @@ def get_followings(request, uid):
 
 
 # ================================
-# 9. 查看粉丝列表
+# 13. 查看粉丝列表
 # ================================
 # http://127.0.0.1:8000/user/10/get_followers/
 @csrf_exempt
@@ -1053,7 +1136,7 @@ def get_followers(request, uid):
     # 2. 查询粉丝列表和总数
     # --------------------------
     sql = """
-        SELECT u.user_name
+        SELECT u.user_name, u.user_id
         FROM UserFollow uf
         JOIN User u ON uf.follower_id = u.user_id
         WHERE uf.followed_id = %s
@@ -1078,12 +1161,18 @@ def get_followers(request, uid):
     # 3. 展示粉丝列表和总数
     # --------------------------
     if request.method == "GET":
-        fan_list = "".join([f"<li>{r[0]}</li>" for r in rows])
+        fan_html = ""
+        for username, user_id in rows :
+            fan_html += f"""
+                <p>{username} <a href="/user/profile/{user_id}/">用户信息</a></p>
+            """
+        if fan_html == "" :
+            fan_html = "<li>暂无粉丝</li>"
         return HttpResponse(f"""
             <h2>粉丝列表</h2>
             <p>粉丝数：{total_count}</p>
             <ul>
-                {fan_list if fan_list else '<li>暂无粉丝</li>'}
+                {fan_html}
             </ul>
             <p><a href="/user/profile/{login_user_id}/">返回个人中心</a></p>
         """)
@@ -1093,7 +1182,7 @@ def get_followers(request, uid):
 
 
 # ================================
-# 10. 查看关注歌手列表
+# 14. 查看关注歌手列表
 # ================================
 # http://127.0.0.1:8000/user/10/get_followsingers/
 @csrf_exempt 
@@ -1117,7 +1206,7 @@ def get_followsingers(request, uid):
     # 2. 查询关注歌手列表和总数
     # --------------------------
     sql = """
-        SELECT s.singer_name
+        SELECT s.singer_name, s.singer_id
         FROM SingerFollow sf
         JOIN Singer s ON sf.singer_id = s.singer_id
         WHERE sf.user_id = %s
@@ -1142,12 +1231,25 @@ def get_followsingers(request, uid):
     # 3. 展示关注歌手列表和总数
     # --------------------------
     if request.method == "GET":
-        follow_singers_list = "".join([f"<li>{r[0]}</li>" for r in rows])
+        follow_singers_html = ""
+        for singer_name, singer_id in rows :
+            follow_singers_html += f"""
+                <p>
+                {singer_name} 
+                <a href="/singer/profile/{singer_id}/">歌手详情</a> 
+                <form action="/user/unfollow_singer/" method="post">
+                <input type="hidden" name="singer_id" value="{ singer_id }">
+                <button type="submit">取关</button>
+                </form>
+                </p>
+            """
+        if follow_singers_html == "":
+            follow_singers_html = "<li>暂无关注歌手</li>"
         return HttpResponse(f"""
             <h2>关注歌手列表</h2>
             <p>关注歌手数：{total_count}</p>
             <ul>
-                {follow_singers_list if follow_singers_list else '<li>暂无关注歌手</li>'}
+                {follow_singers_html}
             </ul>
             <p><a href="/user/profile/{login_user_id}/">返回个人中心</a></p>
         """)
@@ -1158,7 +1260,7 @@ def get_followsingers(request, uid):
 
 
 # ================================
-# 11. 查看他人信息
+# 15. 查看他人信息
 # ================================
 # http://127.0.0.1:8000/user/get_user_info/ 
 @csrf_exempt
@@ -1232,7 +1334,7 @@ def get_user_info(request):
     return json_cn({"error": "GET or POST required"}, 400)
 
 # ================================
-# 5. 管理员界面
+# 16. 管理员界面
 # ================================
 # http://127.0.0.1:8000/Administrator/profile/
 ADMIN_USER_ID = 1  # 你可以改成实际管理员 id

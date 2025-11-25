@@ -106,7 +106,7 @@ def list_songlists(request):
 
             <p><a href="/songlist/create_songlist/">创建歌单</a></p>
 
-            <p><a href="/user/profile/">返回用户中心</a></p>
+            <p><a href="/user/profile/{uid}/">返回用户中心</a></p>
         </form>
 
         <hr>
@@ -240,17 +240,17 @@ def edit_songlist(request, songlist_id):
         row = cursor.fetchone()
 
     if not row:
-        return HttpResponse("""
+        return HttpResponse(f"""
             <h2>歌单不存在</h2>
-            <p><a href="/user/profile/">返回用户中心</a></p>
+            <p><a href="/user/profile/{uid}/">返回用户中心</a></p>
         """, status=404)
 
     owner_id, old_title, old_desc, old_public, old_cover = row
 
     if owner_id != uid:
-        return HttpResponse("""
+        return HttpResponse(f"""
             <h2>无权限：你不是该歌单的创建者</h2>
-            <p><a href="/user/profile/">返回用户中心</a></p>
+            <p><a href="/user/profile/{uid}/">返回用户中心</a></p>
         """, status=403)
     
 
@@ -339,7 +339,7 @@ def edit_songlist(request, songlist_id):
 # ================================
 # 4. 歌单详情
 # ================================
-# http://127.0.0.1:8000/singer/profile/2/
+# http://127.0.0.1:8000/songlist/profile/2/
 @csrf_exempt
 def songlist_profile(request, songlist_id):
     # --------------------------
@@ -377,12 +377,21 @@ def songlist_profile(request, songlist_id):
     # --------------------------
     # 3. 私密歌单权限判断
     # --------------------------
-    if is_public == 0:
-        if uid != owner_id:
+    favorite_html = ""
+    if uid != owner_id:
+        if is_public == 0:
             return HttpResponse("""
                 <h2>这是一个私密歌单，你无权查看</h2>
                 <p><a href="/songlist/list_songlists/">返回我的歌单</a></p>
             """, status=403)
+        else :
+            favorite_html = f"""
+                <form action="/favorite/add_favorite/" method="post">
+                <input type="hidden" name="type" value="songlist">
+                <input type="hidden" name="id" value="{ songlist_id }">
+                <button type="submit">收藏这个歌单</button>
+                </form>
+            """
 
     # --------------------------
     # 4. 查询歌单中的歌曲列表
@@ -434,6 +443,7 @@ def songlist_profile(request, songlist_id):
     if not songs_html:
         songs_html = "<p>该歌单还没有添加任何歌曲。</p>"
 
+
     # --------------------------
     # 7. 生成最终 HTML
     # --------------------------
@@ -446,6 +456,9 @@ def songlist_profile(request, songlist_id):
         <p>公开性：{"公开" if is_public else "私密"}</p>
         <p>歌曲数量：{len(song_rows)}</p>
         <p>总时长：{total_duration_fmt}</p>
+
+        
+        {favorite_html}
 
         <p>
             {"<a href='/songlist/%d/add_song/'>添加歌曲到歌单</a>" % songlist_id if uid == owner_id else ""}
@@ -785,7 +798,7 @@ def songlist_delete_song(request, songlist_id, song_id):
 
 
 # ================================
-# 7. 对歌单中的歌曲排序
+# 8. 对歌单中的歌曲排序
 # ================================
 # http://127.0.0.1:8000/songlist/sort_songlist/2
 @csrf_exempt
@@ -911,10 +924,10 @@ def sort_songlist(request, songlist_id):
 
 
 # ================================
-# 8. 进行收藏操作
+# 9. 进行收藏操作
 # ================================
 @csrf_exempt
-def favorite_add(request):
+def add_favorite(request):
     # --------------------------
     # 1. 必须登录
     # --------------------------
@@ -929,77 +942,58 @@ def favorite_add(request):
     # --------------------------
     # 2. 获取数据
     # --------------------------
-    if request.method != "POST":
-        return HttpResponse("""
-            <h2>仅支持 POST</h2>
-        """, status=400)
-
-    # JSON OR form
     try:
         data = json.loads(request.body)
     except:
         data = request.POST
 
-    fav_type = data.get("type")
+    target_type = data.get("type")
     target_id = data.get("id")
 
-    if not fav_type or not target_id:
-        return HttpResponse("""
-            <h2>缺少必要参数(type, id)</h2>
-            <p><a href="/">返回首页</a></p>
-        """, status=400)
-
-    # --------------------------
-    # 3. 判断类型，动态生成表名与字段
-    # --------------------------
-    table_map = {
-        "song": ("Favorite_Song", "song_id"),
-        "album": ("Favorite_Album", "album_id"),
-        "songlist": ("Favorite_Songlist", "songlist_id"),
-    }
-
-    if fav_type not in table_map:
+    if target_type not in ["song", "album", "songlist"] :
         return HttpResponse(f"""
-            <h2>不支持的收藏类型：{fav_type}</h2>
-            <p><a href="/">返回首页</a></p>
-        """, status=400)
-
-    table, col = table_map[fav_type]
+            <h2>非法的收藏类型！</h2>
+            <p><a href="/{target_type}/profile/{target_id}/">返回详情页</a></p>
+        """)
 
     # --------------------------
-    # 4. 检查是否已收藏
+    # 3. 检查是否已收藏
     # --------------------------
     sql_check = f"""
         SELECT 1
-        FROM {table}
-        WHERE user_id = %s AND {col} = %s
+        FROM Favorite
+        WHERE user_id = %s AND target_type = %s AND target_id = %s
     """
 
     with connection.cursor() as cursor:
-        cursor.execute(sql_check, [uid, target_id])
+        cursor.execute(sql_check, [uid, target_type, target_id])
         exists = cursor.fetchone()
 
     if exists:
         return HttpResponse(f"""
             <h2>已经收藏过了！</h2>
-            <p><a href="/{fav_type}/{target_id}/">返回详情页</a></p>
+            <p><a href="/{target_type}/profile/{target_id}/">返回详情页</a></p>
         """)
 
     # --------------------------
-    # 5. 插入收藏记录
+    # 4. 插入收藏记录
     # --------------------------
     sql_insert = f"""
-        INSERT INTO {table}(user_id, {col}, create_time)
-        VALUES(%s, %s, NOW())
+        INSERT INTO Favorite(user_id, target_type, target_id)
+        VALUES(%s, %s, %s)
     """
 
     with connection.cursor() as cursor:
-        cursor.execute(sql_insert, [uid, target_id])
+        cursor.execute(sql_insert, [uid, target_type, target_id])
 
     # --------------------------
-    # 6. 返回成功页面
+    # 5. 返回成功页面
     # --------------------------
     return HttpResponse(f"""
         <h2>收藏成功！</h2>
-        <p><a href="/{fav_type}/{target_id}/">返回详情页</a></p>
+        <p><a href="/{target_type}/profile/{target_id}/">返回详情页</a></p>
     """)
+
+
+
+
