@@ -565,6 +565,7 @@ def profile(request, owner_id):
             <p><a href="/music/">音乐中心</a></p>
 
             <p><a href="/songlist/list_songlists/">我的歌单</a></p>
+            <p><a href="/favorite/list_favorite/">我的收藏</a></p>
 
             <p><a href="/user/{user_id}/get_followers/">查看粉丝列表</a></p>
             <p><a href="/user/{user_id}/get_followsingers/">查看关注歌手列表</a></p>

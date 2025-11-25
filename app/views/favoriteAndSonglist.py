@@ -921,10 +921,286 @@ def sort_songlist(request, songlist_id):
 
 
 
+# ==========================
+# 10. 搜索歌单
+# ==========================
+# http://127.0.0.1:8000/songlist/search_songlist/
+@csrf_exempt
+def search_songlist(request):
+    # --------------------------
+    # 1. 登录校验
+    # --------------------------
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return HttpResponse("""
+            <h2>请先登录</h2>
+            <p><a href="/user/login/">点击前往登录</a></p>
+        """)
+
+    if request.method == "GET":
+        # --------------------------
+        # 2. 展示搜索歌单界面
+        # --------------------------
+        return HttpResponse(f"""
+            <h2>搜索歌单</h2>
+            <form method="POST">
+                <label>歌单名：(支持模糊搜索)</label><br>
+                <input name="songlist_title"><br><br>
+                            
+                <button type="submit">搜索</button>
+                            
+                <p><a href="/music/">返回音乐中心</a></p>
+            </form>
+        """)
+
+
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+        except:
+            data = request.POST    
+
+            
+        # --------------------------
+        # 3. 获取搜索标签
+        # --------------------------
+        songlist_title = data.get("songlist_title", "").strip()
+
+        filters = []
+        params = []
+
+        if songlist_title:
+            filters.append("s.songlist_title LIKE %s")
+            params.append(f"%{songlist_title}%")
+
+
+        # --------------------------
+        # 4. 查询歌单信息
+        # --------------------------
+        sql_songlist = """
+            SELECT sl.songlist_id, sl.songlist_title, sl.cover_url, u.user_id, u.user_name
+            FROM Songlist sl
+            JOIN User u ON u.user_id = sl.user_id
+        """
+
+        if filters:
+            sql_songlist += " WHERE " + " AND ".join(filters)
+ 
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql_songlist, params)
+            rows = cursor.fetchall()
+
+            if not rows:
+                HttpResponse(f"""
+                        <h2>未找到符合歌单</h2><br>          
+                        <p><a href="/songlist/search_songlist/">返回搜索界面</a></p>
+                    """)
+                
+            # --------------------------
+            # 5. 将信息转成HTML
+            # --------------------------
+            songlists_html = ""
+            for (songlist_id, songlist_title, cover_url, user_id, user_name) in rows :
+                songlists_html += f"""
+                    <div style="border:1px solid #ccc; padding:10px; margin-bottom:10px;">
+                        <h4>歌单名：{songlist_title}</h4> 
+                        <img src="{cover_url}" style="width:120px;height:120px;">
+                        <p>用户：{user_name}</p>
+
+                        <p><a href="/songlist/profile/{songlist_id}/">详情</a></p>
+                    </div>
+                """
+
+        return HttpResponse(f"""
+            <p><a href="/music/">返回音乐中心</a></p>
+                            
+            <h2>搜索结果</h2>
+            <ul>
+                {songlists_html}
+            </ul>
+        """)
+    
+    return json_cn({"error": "GET or POST required"}, 400)
+
+
+# ==========================
+# 9. 个人收藏
+# ==========================
+# http://127.0.0.1:8000/favorite/list_favorite
+@csrf_exempt
+def list_favorite(request):
+    # --------------------------
+    # 1. 必须登录
+    # --------------------------
+    if "user_id" not in request.session:
+        return HttpResponse("""
+            <h2>请先登录再查看收藏</h2>
+            <p><a href="/user/login/">返回登录</a></p>
+        """, status=403)
+
+    uid = request.session["user_id"]
+
+    # --------------------------
+    # 2. 获取收藏的歌曲
+    # --------------------------
+    sql_song = """
+        SELECT 
+            s.song_id,
+            s.song_title,
+            s.duration,
+            f.favorite_time
+        FROM Favorite f
+        JOIN Song s ON f.target_id = s.song_id
+        WHERE f.user_id = %s AND f.target_type = 'song'
+        ORDER BY f.favorite_time DESC
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql_song, [uid])
+        songs = cursor.fetchall()
+
+    song_count = len(songs)
+    song_total_duration = sum([s[2] for s in songs]) if songs else 0
+
+
+    # ========================================================
+    # 3. 获取收藏的专辑
+    # ========================================================
+    sql_album = """
+        SELECT 
+            al.album_id,
+            al.album_title,
+            al.release_date,
+            f.favorite_time
+        FROM Favorite f
+        JOIN Album al ON f.target_id = al.album_id
+        WHERE f.user_id = %s AND f.target_type = 'album'
+        ORDER BY f.favorite_time DESC
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql_album, [uid])
+        albums = cursor.fetchall()
+
+    album_count = len(albums)
+
+    # ========================================================
+    # 4. 获取收藏的歌单
+    # ========================================================
+    sql_songlist = """
+        SELECT 
+            sl.songlist_id,
+            sl.songlist_title,
+            f.favorite_time
+        FROM Favorite f
+        JOIN Songlist sl ON f.target_id = sl.songlist_id
+        WHERE f.user_id = %s AND f.target_type = 'songlist'
+        ORDER BY f.favorite_time DESC
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql_songlist, [uid])
+        songlists = cursor.fetchall()
+
+    songlist_count = len(songlists)
+
+    # ========================================================
+    # 5. 生成 HTML
+    # ========================================================
+
+    # ---------- 收藏歌曲 ----------
+    html_songs = f"""
+        <h2>收藏的歌曲（{song_count} 首，合计时长 {format_time(song_total_duration)}）</h2>
+        <ul>
+    """
+    if song_count == 0:
+        html_songs += "<p>暂无收藏歌曲。</p>"
+    else:
+        for sid, title, duration, ctime in songs:
+            html_songs += f"""
+                <li>
+                    <strong>{title}</strong>  
+                    （时长：{format_time(duration)}）
+                    <br>
+                    <a href="/song/profile/{sid}/">查看详情</a>
+
+                    <form action="/favorite/delete_favorite/" method="post">
+                    <input type="hidden" name="type" value="song">
+                    <input type="hidden" name="id" value="{ sid }">
+                    <button type="submit">取消收藏</button>
+                </form>
+
+                </li>
+            """
+    html_songs += "</ul><hr>"
+
+    # ---------- 收藏专辑 ----------
+    html_albums = f"""
+        <h2>收藏的专辑（{album_count} 张）</h2>
+        <ul>
+    """
+    if album_count == 0:
+        html_albums += "<p>暂无收藏专辑。</p>"
+    else:
+        for aid, title, date, ctime in albums:
+            html_albums += f"""
+                <li>
+                    <strong>{title}</strong>  
+                    （发行日期：{date}）
+                    <br>
+                    <a href="/album/profile/{aid}/">查看详情</a>
+
+                    <form action="/favorite/delete_favorite/" method="post">
+                    <input type="hidden" name="type" value="album">
+                    <input type="hidden" name="id" value="{ aid }">
+                    <button type="submit">取消收藏</button>
+                </form>
+
+                </li>
+            """
+    html_albums += "</ul><hr>"
+
+    # ---------- 收藏歌单 ----------
+    html_songlists = f"""
+        <h2>收藏的歌单（{songlist_count} 个）</h2>
+        <ul>
+    """
+    if songlist_count == 0:
+        html_songlists += "<p>暂无收藏歌单。</p>"
+    else:
+        for lid, title, ctime in songlists:
+            html_songlists += f"""
+                <li>
+                    <strong>{title}</strong>
+                    <br>
+                    <a href="/songlist/profile/{lid}/">查看详情</a>
+
+                    <form action="/favorite/delete_favorite/" method="post">
+                    <input type="hidden" name="type" value="songlist">
+                    <input type="hidden" name="id" value="{ lid }">
+                    <button type="submit">取消收藏</button>
+                </form>
+
+                </li>
+            """
+    html_songlists += "</ul><hr>"
+
+    # ---------- 总输出 ----------
+    return HttpResponse(f"""
+        <h1>我的收藏</h1>
+        {html_songs}
+        {html_albums}
+        {html_songlists}
+
+        <p><a href="/user/profile/{uid}">返回个人中心</a></p>
+    """)
+
+
 
 
 # ================================
-# 9. 进行收藏操作
+# 10. 进行收藏操作
 # ================================
 @csrf_exempt
 def add_favorite(request):
@@ -995,5 +1271,76 @@ def add_favorite(request):
     """)
 
 
+
+# ================================
+# 11. 取消收藏
+# ================================
+@csrf_exempt
+def delete_favorite(request):
+    # --------------------------
+    # 1. 必须登录
+    # --------------------------
+    if "user_id" not in request.session:
+        return HttpResponse("""
+            <h2>请先登录再进行收藏</h2>
+            <p><a href="/user/login/">返回登录</a></p>
+        """, status=403)
+
+    uid = request.session["user_id"]
+
+    # --------------------------
+    # 2. 获取数据
+    # --------------------------
+    try:
+        data = json.loads(request.body)
+    except:
+        data = request.POST
+
+    target_type = data.get("type")
+    target_id = data.get("id")
+
+    if target_type not in ["song", "album", "songlist"] :
+        return HttpResponse(f"""
+            <h2>非法的收藏类型！</h2>
+            <p><a href="/favorite/list_favorite/">返回个人收藏页</a></p>
+        """)
+
+    # --------------------------
+    # 3. 检查是否已收藏
+    # --------------------------
+    sql_check = f"""
+        SELECT 1
+        FROM Favorite
+        WHERE user_id = %s AND target_type = %s AND target_id = %s
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql_check, [uid, target_type, target_id])
+        exists = cursor.fetchone()
+
+    if not exists:
+        return HttpResponse(f"""
+            <h2>未收藏不能取消</h2>
+            <p><a href="/favorite/list_favorite/">返回个人收藏页</a></p>
+        """)
+
+    # --------------------------
+    # 4. 删除收藏记录
+    # --------------------------
+    sql_insert = f"""
+        DELETE FROM Favorite
+        WHERE user_id = %s AND target_type = %s AND target_id = %s
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql_insert, [uid, target_type, target_id])
+
+    # --------------------------
+    # 5. 返回成功页面
+    # --------------------------
+    return HttpResponse(f"""
+        <h2>取消收藏成功！</h2>
+        <p><a href="/favorite/list_favorite/">返回个人收藏页</a></p>
+    """)
 
 

@@ -56,8 +56,12 @@ urlpatterns = [
     path("songlist/<int:songlist_id>/add_song/", favorite.songlist_add_song),
     path("songlist/<int:songlist_id>/delete_song/<int:song_id>/", favorite.songlist_delete_song),
     path("songlist/sort_songlist/<int:songlist_id>/", favorite.sort_songlist),
+    path("songlist/search_songlist/", favorite.search_songlist),
 
+    path("favorite/list_favorite/", favorite.list_favorite),
     path("favorite/add_favorite/", favorite.add_favorite),
+    path("favorite/delete_favorite/", favorite.delete_favorite),
+    
 
 
 

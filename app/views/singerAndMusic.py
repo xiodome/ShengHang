@@ -31,6 +31,7 @@ def music(request):
         <p><a href="/singer/search_singer/">搜索歌手</a></p>
         <p><a href="/album/search_album/">搜索专辑</a></p>
         <p><a href="/song/search_song/">搜索歌曲</a></p>
+        <p><a href="/songlist/search_songlist/">搜索歌单</a></p>
     
     """)
 
