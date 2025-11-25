@@ -129,7 +129,8 @@ class Comment(models.Model):
 
     comment_id      = models.AutoField(primary_key=True,                                verbose_name='评论编号')
     user_id         = models.ForeignKey('User', on_delete=models.CASCADE,               verbose_name='评论用户')
-    target_type     = models.CharField(max_length=10, choices=TARGET_TYPE_CHOICES,   verbose_name='评论目标类型')
+    target_type     = models.CharField(max_length=10, choices=TARGET_TYPE_CHOICES,  verbose_name='评论目标类型')
+    target_id       = models.IntegerField(                                            verbose_name='评论目标id')
     content         = models.CharField(max_length=300,                                  verbose_name='评论内容')
     like_count      = models.IntegerField(default=0,                                      verbose_name='点赞数')
     comment_time    = models.DateTimeField(auto_now_add=True,                           verbose_name='评论时间')

@@ -1,8 +1,10 @@
 # app/urls.py
 from django.urls import path
 from app.views import userManagement as user
-from app.views import singerAndMusic as miusic
+from app.views import singerAndMusic as music
 from app.views import favoriteAndSonglist as favorite
+from app.views import commentAndInteraction as comment
+ 
 
 
 from django.http import HttpResponse
@@ -33,19 +35,20 @@ urlpatterns = [
     path("Administrator/profile/", user.admin_profile),
 
     # 歌手与音乐管理模块
-    path("music/", miusic.music),
-    path("Administrator/singer/admin_add_singer/", miusic.admin_add_singer),
-    path("Administrator/singer/admin_delete_singer/", miusic.admin_delete_singer),
-    path("singer/search_singer/", miusic.search_singer),
-    path("singer/profile/<int:singer_id>/", miusic.singer_profile),
-    path("Administrator/album/admin_add_album/", miusic.admin_add_album),
-    path("Administrator/album/admin_delete_album/", miusic.admin_delete_album),
-    path("album/search_album/", miusic.search_album),
-    path("album/profile/<int:album_id>/", miusic.album_profile),
-    path("Administrator/song/admin_add_song/", miusic.admin_add_song),
-    path("Administrator/song/admin_delete_song/", miusic.admin_delete_song),
-    path("song/search_song/", miusic.search_song),
-    path("song/profile/<int:song_id>/", miusic.song_profile),
+    path("music/", music.music),
+    path("Administrator/singer/admin_add_singer/", music.admin_add_singer),
+    path("Administrator/singer/admin_delete_singer/", music.admin_delete_singer),
+    path("singer/search_singer/", music.search_singer),
+    path("singer/profile/<int:singer_id>/", music.singer_profile),
+    path("Administrator/album/admin_add_album/", music.admin_add_album),
+    path("Administrator/album/admin_delete_album/", music.admin_delete_album),
+    path("album/search_album/", music.search_album),
+    path("album/profile/<int:album_id>/", music.album_profile),
+    path("Administrator/song/admin_add_song/", music.admin_add_song),
+    path("Administrator/song/admin_delete_song/", music.admin_delete_song),
+    path("song/search_song/", music.search_song),
+    path("song/profile/<int:song_id>/", music.song_profile),
+
 
     # 收藏与歌单模块
     path("songlist/list_songlists/", favorite.list_songlists),
@@ -57,11 +60,18 @@ urlpatterns = [
     path("songlist/<int:songlist_id>/delete_song/<int:song_id>/", favorite.songlist_delete_song),
     path("songlist/sort_songlist/<int:songlist_id>/", favorite.sort_songlist),
     path("songlist/search_songlist/", favorite.search_songlist),
+    path("songlist/like_songlist/<songlist_id>/", favorite.like_songlist),
 
     path("favorite/list_favorite/", favorite.list_favorite),
     path("favorite/add_favorite/", favorite.add_favorite),
     path("favorite/delete_favorite/", favorite.delete_favorite),
-    
+
+
+    # 评论与互动模块
+    path("comment/list_comment/", comment.list_comment),
+    path("comment/add_comment/", comment.add_comment),
+    path("comment/delete_comment/", comment.delete_comment),
+    path("comment/like_comment/<int:comment_id>/", comment.like_comment),
 
 
 

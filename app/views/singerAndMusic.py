@@ -929,6 +929,15 @@ def album_profile(request, album_id):
         WHERE ss.song_id = %s
     """
 
+    sql_comment = """
+        SELECT 
+            u.user_id, u.user_name, c.comment_id, c.content, c.like_count, c.comment_time
+        FROM Comment c 
+        JOIN User u ON u.user_id = c.user_id
+        WHERE target_id = %s AND target_type = 'album'
+        ORDER BY comment_time DESC
+    """
+
     # --------------------------
     # 4. 查询并生成专辑 HTML
     # --------------------------
@@ -960,8 +969,44 @@ def album_profile(request, album_id):
         if songs_html == "" :
             songs_html = (f"<p>该专辑没有任何歌曲</p>")
 
+        cursor.execute(sql_comment, [album_id])
+        comment_rows = cursor.fetchall()
+        comment_count = len(comment_rows)
+
+
     # --------------------------
-    # 5. 生成最终 HTML
+    # 5. 专辑评论
+    # --------------------------
+    comment_html = f"""
+        <h2>专辑评论（{comment_count} 个）</h2>
+        <ul>
+    """
+    if comment_count == 0:
+        comment_html += "<p>暂无评论。</p>"
+    else:
+        for user_id, user_name, comment_id, content, like_count, comment_time in comment_rows:
+            comment_html += f"""
+                <li>
+                    <p>用户：<a href="/user/profile/{user_id}/">{user_name}</a><p>
+                    内容：<strong>{content}</strong>
+
+                    <form action="/comment/like_comment/{comment_id}/" method="post">
+                        <input type="hidden" name="type" value="album">
+                        <input type="hidden" name="id" value="{ album_id }">
+                        <button type="submit">点赞</button>
+                    </form>
+
+                    <p>点赞数：{like_count}<p>
+                    <p>评论时间：{comment_time.strftime("%Y-%m-%d %H:%M")}</p>
+
+                </form>
+
+                </li>
+            """
+    comment_html += "</ul><hr>"
+
+    # --------------------------
+    # 6. 生成最终 HTML
     # --------------------------
     return HttpResponse(f"""
         <h2>专辑详情：{album_title}</h2>
@@ -984,8 +1029,19 @@ def album_profile(request, album_id):
         <hr>
         <h3>专辑歌曲列表</h3>
         {songs_html}
-
         <hr>
+
+        {comment_html}
+
+        <h3>发表评论</h3>
+        <form action="/comment/add_comment/" method="post">
+            <input type="hidden" name="target_type" value="album">
+            <input type="hidden" name="target_id" value="{ album_id }">
+
+            <textarea name="content" rows="4" cols="50" required></textarea>
+            <br>
+            <button type="submit">提交评论</button>
+        </form>
     """)
 
 
@@ -1424,6 +1480,15 @@ def song_profile(request, song_id):
         WHERE ss.song_id = %s
     """
 
+    sql_comment = """
+        SELECT 
+            u.user_id, u.user_name, c.comment_id, c.content, c.like_count, c.comment_time
+        FROM Comment c 
+        JOIN User u ON u.user_id = c.user_id
+        WHERE target_id = %s AND target_type = 'song'
+        ORDER BY comment_time DESC
+    """
+
     with connection.cursor() as cursor:
         cursor.execute(sql_song, [song_id])
         song_row = cursor.fetchone()
@@ -1433,9 +1498,45 @@ def song_profile(request, song_id):
         singer_rows = cursor.fetchall()
         singer_names = "、".join([row[1] for row in singer_rows]) if singer_rows else "未知"
 
+        cursor.execute(sql_comment, [song_id])
+        comment_rows = cursor.fetchall()
+        comment_count = len(comment_rows)
+
 
     # --------------------------
-    # 3. 生成最终 HTML
+    # 3. 歌曲评论
+    # --------------------------
+    comment_html = f"""
+        <h2>歌曲评论（{comment_count} 个）</h2>
+        <ul>
+    """
+    if comment_count == 0:
+        comment_html += "<p>暂无评论。</p>"
+    else:
+        for user_id, user_name, comment_id, content, like_count, comment_time in comment_rows:
+            comment_html += f"""
+                <li>
+                    <p>用户：<a href="/user/profile/{user_id}/">{user_name}</a><p>
+                    内容：<strong>{content}</strong>
+
+                    <form action="/comment/like_comment/{comment_id}/" method="post">
+                        <input type="hidden" name="type" value="song">
+                        <input type="hidden" name="id" value="{ song_id }">
+                        <button type="submit">点赞</button>
+                    </form>
+
+                    <p>点赞数：{like_count}<p>
+                    <p>评论时间：{comment_time.strftime("%Y-%m-%d %H:%M")}</p>
+
+                </form>
+
+                </li>
+            """
+    comment_html += "</ul><hr>"
+
+
+    # --------------------------
+    # 4. 生成最终 HTML
     # --------------------------
     return HttpResponse(f"""
         <h2>歌名：{song_title}</h2>
@@ -1448,6 +1549,18 @@ def song_profile(request, song_id):
             <input type="hidden" name="type" value="song">
             <input type="hidden" name="id" value="{ song_id }">
             <button type="submit">收藏这首歌曲</button>
+        </form>
+
+        {comment_html}
+        
+        <h3>发表评论</h3>
+        <form action="/comment/add_comment/" method="post">
+            <input type="hidden" name="target_type" value="song">
+            <input type="hidden" name="target_id" value="{ song_id }">
+
+            <textarea name="content" rows="4" cols="50" required></textarea>
+            <br>
+            <button type="submit">提交评论</button>
         </form>
 
     """)

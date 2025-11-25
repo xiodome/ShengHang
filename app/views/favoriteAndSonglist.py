@@ -412,9 +412,22 @@ def songlist_profile(request, songlist_id):
         ORDER BY ss.add_time DESC
     """
 
+    sql_comment = """
+        SELECT 
+            u.user_id, u.user_name, c.comment_id, c.content, c.like_count, c.comment_time
+        FROM Comment c 
+        JOIN User u ON u.user_id = c.user_id
+        WHERE target_id = %s AND target_type = 'songlist'
+        ORDER BY comment_time DESC
+    """
+
     with connection.cursor() as cursor:
         cursor.execute(sql_songs, [songlist_id])
         song_rows = cursor.fetchall()
+
+        cursor.execute(sql_comment, [songlist_id])
+        comment_rows = cursor.fetchall()
+        comment_count = len(comment_rows)
 
     # --------------------------
     # 5. 计算总时长
@@ -445,7 +458,38 @@ def songlist_profile(request, songlist_id):
 
 
     # --------------------------
-    # 7. 生成最终 HTML
+    # 7. 歌单评论
+    # --------------------------
+    comment_html = f"""
+        <h2>歌单评论（{comment_count} 个）</h2>
+        <ul>
+    """
+    if comment_count == 0:
+        comment_html += "<p>暂无评论。</p>"
+    else:
+        for user_id, user_name, comment_id, content, like_count, comment_time in comment_rows:
+            comment_html += f"""
+                <li>
+                    <p>用户：<a href="/user/profile/{user_id}/">{user_name}</a><p>
+                    内容：<strong>{content}</strong>
+
+                    <form action="/comment/like_comment/{comment_id}/" method="post">
+                        <input type="hidden" name="type" value="songlist">
+                        <input type="hidden" name="id" value="{ songlist_id }">
+                        <button type="submit">点赞</button>
+                    </form>
+                    <p>点赞数：{like_count}<p>
+                    <p>评论时间：{comment_time.strftime("%Y-%m-%d %H:%M")}</p>
+
+                </form>
+
+                </li>
+            """
+    comment_html += "</ul><hr>"
+
+
+    # --------------------------
+    # 8. 生成最终 HTML
     # --------------------------
     return HttpResponse(f"""
         <h2>歌单详情：{title}</h2>
@@ -456,6 +500,10 @@ def songlist_profile(request, songlist_id):
         <p>公开性：{"公开" if is_public else "私密"}</p>
         <p>歌曲数量：{len(song_rows)}</p>
         <p>总时长：{total_duration_fmt}</p>
+        
+        <form action="/songlist/like_songlist/{songlist_id}/">
+            <button type="submit">点赞</button>
+        </form>
 
         
         {favorite_html}
@@ -473,8 +521,19 @@ def songlist_profile(request, songlist_id):
         <hr>
         <h3>歌曲列表</h3>
         {songs_html}
-
         <hr>
+
+        {comment_html}
+
+        <h3>发表评论</h3>
+        <form action="/comment/add_comment/" method="post">
+            <input type="hidden" name="target_type" value="songlist">
+            <input type="hidden" name="target_id" value="{ songlist_id }">
+
+            <textarea name="content" rows="4" cols="50" required></textarea>
+            <br>
+            <button type="submit">提交评论</button>
+        </form>
     """)
 
 
@@ -1024,8 +1083,32 @@ def search_songlist(request):
     return json_cn({"error": "GET or POST required"}, 400)
 
 
+
+# ================================
+# 11.点赞歌单
+# ================================
+# /songlist/like_songlist/<songlist_id>/
+@csrf_exempt
+def like_songlist(request, songlist_id):
+        
+    sql = """
+        UPDATE Songlist
+        SET like_count = like_count + 1
+        WHERE Songlist_id = %s;
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql, [songlist_id])
+
+    return HttpResponse(f"""
+        <h2>点赞成功！</h2>
+        <p><a href="/songlist/profile/{songlist_id}/">返回详情页</a></p>
+    """)
+    
+
+
 # ==========================
-# 9. 个人收藏
+# 12. 个人收藏
 # ==========================
 # http://127.0.0.1:8000/favorite/list_favorite
 @csrf_exempt
@@ -1200,7 +1283,7 @@ def list_favorite(request):
 
 
 # ================================
-# 10. 进行收藏操作
+# 13. 进行收藏操作
 # ================================
 @csrf_exempt
 def add_favorite(request):
@@ -1273,12 +1356,12 @@ def add_favorite(request):
 
 
 # ================================
-# 11. 取消收藏
+# 14. 取消收藏
 # ================================
 @csrf_exempt
 def delete_favorite(request):
     # --------------------------
-    # 1. 必须登录
+    # 1. 检验登录
     # --------------------------
     if "user_id" not in request.session:
         return HttpResponse("""
