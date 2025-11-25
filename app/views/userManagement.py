@@ -504,7 +504,7 @@ def profile(request):
         return HttpResponse("""
             <h2>请先登录</h2>
             <p><a href="/user/login/">点击前往登录</a></p>
-        """, status=403)
+        """)
 
     # --------------------------
     # 2. 查询个人信息
@@ -519,7 +519,7 @@ def profile(request):
         row = cursor.fetchone()
 
         if not row:
-            return HttpResponse("<h2>用户不存在</h2>", status=404)
+            return HttpResponse("<h2>用户不存在</h2>")
 
         username, gender, birthday, region, email, profile_text = row
 
@@ -545,7 +545,8 @@ def profile(request):
         <p><strong>邮箱：</strong> {email}</p>
         <p><strong>个人简介：</strong> {profile_text}</p>
 
-        <br>
+        <br> 
+        <p><a href="/song/song_detail/">搜索歌曲</a></p>
         <p><a href="/singer/list_singers/">搜索歌手</a></p>
         <p><a href="/album/album_detail/">搜索专辑</a></p>
 
@@ -978,7 +979,7 @@ def get_followings(request, uid):
 
     with connection.cursor() as cursor:
         cursor.execute(sql_count, [uid])
-        total_count = cursor.fetchall()[0]
+        total_count = cursor.fetchone()[0]
     if not total_count :
         total_count = 0
 
@@ -1042,7 +1043,7 @@ def get_followers(request, uid):
 
     with connection.cursor() as cursor:
         cursor.execute(sql_count, [uid])
-        total_count = cursor.fetchall()[0]
+        total_count = cursor.fetchone()[0]
     if not total_count :
         total_count = 0
 
@@ -1106,7 +1107,7 @@ def get_followsingers(request, uid):
 
     with connection.cursor() as cursor:
         cursor.execute(sql_count, [uid])
-        total_count = cursor.fetchall()[0]
+        total_count = cursor.fetchone()[0]
     if not total_count :
         total_count = 0
 

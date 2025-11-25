@@ -37,6 +37,8 @@ urlpatterns = [
     path("Administrator/album/admin_delete_album/", miusic.admin_delete_album),
     path("album/album_detail/", miusic.album_detail),
     path("Administrator/song/admin_add_song/", miusic.admin_add_song),
-
+    path("Administrator/song/admin_delete_song/", miusic.admin_delete_song),
+    path("song/song_detail/", miusic.song_detail),
+    
 ]
 
