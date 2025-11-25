@@ -339,7 +339,7 @@ def edit_songlist(request, songlist_id):
 # ================================
 # 4. 歌单详情
 # ================================
-# http://127.0.0.1:8000/songlist/profile/2/
+# http://127.0.0.1:8000/singer/profile/2/
 @csrf_exempt
 def songlist_profile(request, songlist_id):
     # --------------------------
@@ -440,23 +440,28 @@ def songlist_profile(request, songlist_id):
     return HttpResponse(f"""
         <h2>歌单详情：{title}</h2>
         <img src="{cover}" style="width:180px;height:180px;">
-        <p>{desc or ''}</p>
-        <p>创建时间：{ctime}</p>
+        <p>歌单介绍：{desc or ''}</p>
+        <p>创建时间：{ctime.strftime("%Y-%m-%d %H:%M")}</p>
         <p>点赞数：{likes}</p>
         <p>公开性：{"公开" if is_public else "私密"}</p>
         <p>歌曲数量：{len(song_rows)}</p>
         <p>总时长：{total_duration_fmt}</p>
+
+        <p>
+            {"<a href='/songlist/%d/add_song/'>添加歌曲到歌单</a>" % songlist_id if uid == owner_id else ""}
+        </p>
+
+        <p>
+            {"<a href='/songlist/sort_songlist/%d/'>对歌曲排序</a>" % songlist_id if uid == owner_id else ""}
+        </p>
+        
+        <p><a href="/songlist/list_songlists/">返回我的歌单</a></p>
 
         <hr>
         <h3>歌曲列表</h3>
         {songs_html}
 
         <hr>
-        <p>
-            {"<a href='/songlist/%d/add_song/'>添加歌曲到歌单</a>" % songlist_id if uid == owner_id else ""}
-        </p>
-
-        <p><a href="/songlist/list_songlists/">返回我的歌单</a></p>
     """)
 
 
@@ -776,3 +781,225 @@ def songlist_delete_song(request, songlist_id, song_id):
         """)
 
     return json_cn({"error": "GET or POST required"}, 400)
+
+
+
+# ================================
+# 7. 对歌单中的歌曲排序
+# ================================
+# http://127.0.0.1:8000/songlist/sort_songlist/2
+@csrf_exempt
+def sort_songlist(request, songlist_id):
+    # --------------------------
+    # 1. 检查登录状态
+    # --------------------------
+    if "user_id" not in request.session:
+        return HttpResponse("""
+            <h2>请先登录后再进行排序操作</h2>
+            <p><a href="/login/">返回登录</a></p>
+        """, status=403)
+
+    uid = request.session["user_id"]
+
+    # --------------------------
+    # 2. 查询歌单信息（获取权限）
+    # --------------------------
+    sql_info = """
+        SELECT user_id, songlist_title, is_public
+        FROM Songlist
+        WHERE songlist_id = %s
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(sql_info, [songlist_id])
+        row = cursor.fetchone()
+
+    if not row:
+        return HttpResponse("<h2>歌单不存在</h2>", status=404)
+
+    owner_id, title, is_public = row
+
+    # 私密歌单权限检查
+    if is_public == 0 and uid != owner_id:
+        return HttpResponse("<h2>无权查看私密歌单</h2>", status=403)
+
+    # --------------------------
+    # 3. 获取排序方式（默认按添加时间）
+    # --------------------------
+    sort = request.GET.get("sort", "add_time")  # add_time / duration / play_count
+
+    # 白名单，安全避免 SQL 注入
+    sort_map = {
+        "add_time": "ss.add_time DESC",
+        "duration": "s.duration DESC",
+        "play_count": "s.play_count DESC",
+    }
+
+    if sort not in sort_map:
+        sort = "add_time"
+
+    order_sql = sort_map[sort]
+
+    # --------------------------
+    # 4. 查询排序后的歌曲列表
+    # --------------------------
+    sql_songs = f"""
+        SELECT 
+            s.song_id,
+            s.song_title,
+            s.duration,
+            a.album_title AS album_title,
+            sg.singer_name,
+            ss.add_time
+        FROM Songlist_Song ss
+        JOIN Song s ON ss.song_id = s.song_id
+        JOIN Album a ON s.album_id = a.album_id
+        JOIN Song_Singer ss2 ON s.song_id = ss2.song_id
+        JOIN Singer sg ON ss2.singer_id = sg.singer_id
+        WHERE ss.songlist_id = %s
+        ORDER BY {order_sql}
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql_songs, [songlist_id])
+        rows = cursor.fetchall()
+
+    # --------------------------
+    # 5. 格式化 HTML
+    # --------------------------
+
+    songs_html = ""
+    for sid, name, duration, album, singer, add_time in rows:
+        songs_html += f"""
+            <div style="border:1px solid #ccc; margin-bottom:10px; padding:10px;">
+                <h4>{name}</h4>
+                <p>歌手：{singer}</p>
+                <p>专辑：{album}</p>
+                <p>时长：{format_time(duration)}</p>
+                <p>添加时间：{add_time.strftime("%Y-%m-%d %H:%M")}</p>
+                <p><a href="/song/detail/{sid}/">查看歌曲</a></p>
+            </div>
+        """
+
+    if not songs_html:
+        songs_html = "<p>该歌单没有包含任何歌曲。</p>"
+
+    # --------------------------
+    # 6. 排序按钮
+    # --------------------------
+    sort_html = f"""
+        <p>
+            排序方式：
+            <a href="/songlist/sort_songlist/{songlist_id}/?sort=add_time">按添加时间</a> |
+            <a href="/songlist/sort_songlist/{songlist_id}/?sort=play_count">按播放次数</a> |
+            <a href="/songlist/sort_songlist/{songlist_id}/?sort=duration">按时长</a>
+        </p>
+        <hr>
+    """
+
+    # --------------------------
+    # 7. 最终输出
+    # --------------------------
+    return HttpResponse(f"""
+        <h2>歌单排序：{title}</h2>
+        {sort_html}
+        {songs_html}
+        <p><a href="/songlist/profile/{songlist_id}/">返回歌单详情</a></p>
+    """)
+
+
+
+
+
+# ================================
+# 8. 进行收藏操作
+# ================================
+@csrf_exempt
+def favorite_add(request):
+    # --------------------------
+    # 1. 必须登录
+    # --------------------------
+    if "user_id" not in request.session:
+        return HttpResponse("""
+            <h2>请先登录再进行收藏</h2>
+            <p><a href="/user/login/">返回登录</a></p>
+        """, status=403)
+
+    uid = request.session["user_id"]
+
+    # --------------------------
+    # 2. 获取数据
+    # --------------------------
+    if request.method != "POST":
+        return HttpResponse("""
+            <h2>仅支持 POST</h2>
+        """, status=400)
+
+    # JSON OR form
+    try:
+        data = json.loads(request.body)
+    except:
+        data = request.POST
+
+    fav_type = data.get("type")
+    target_id = data.get("id")
+
+    if not fav_type or not target_id:
+        return HttpResponse("""
+            <h2>缺少必要参数(type, id)</h2>
+            <p><a href="/">返回首页</a></p>
+        """, status=400)
+
+    # --------------------------
+    # 3. 判断类型，动态生成表名与字段
+    # --------------------------
+    table_map = {
+        "song": ("Favorite_Song", "song_id"),
+        "album": ("Favorite_Album", "album_id"),
+        "songlist": ("Favorite_Songlist", "songlist_id"),
+    }
+
+    if fav_type not in table_map:
+        return HttpResponse(f"""
+            <h2>不支持的收藏类型：{fav_type}</h2>
+            <p><a href="/">返回首页</a></p>
+        """, status=400)
+
+    table, col = table_map[fav_type]
+
+    # --------------------------
+    # 4. 检查是否已收藏
+    # --------------------------
+    sql_check = f"""
+        SELECT 1
+        FROM {table}
+        WHERE user_id = %s AND {col} = %s
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql_check, [uid, target_id])
+        exists = cursor.fetchone()
+
+    if exists:
+        return HttpResponse(f"""
+            <h2>已经收藏过了！</h2>
+            <p><a href="/{fav_type}/{target_id}/">返回详情页</a></p>
+        """)
+
+    # --------------------------
+    # 5. 插入收藏记录
+    # --------------------------
+    sql_insert = f"""
+        INSERT INTO {table}(user_id, {col}, create_time)
+        VALUES(%s, %s, NOW())
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql_insert, [uid, target_id])
+
+    # --------------------------
+    # 6. 返回成功页面
+    # --------------------------
+    return HttpResponse(f"""
+        <h2>收藏成功！</h2>
+        <p><a href="/{fav_type}/{target_id}/">返回详情页</a></p>
+    """)

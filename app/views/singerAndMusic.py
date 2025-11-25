@@ -31,9 +31,9 @@ def admin_add_singer(request):
                 <input name="singer_name" required><br><br>
 
                 <label>歌手类别：</label>
-                    <input type="radio" name="type" value="男">男
-                    <input type="radio" name="type" value="女">女
-                    <input type="radio" name="type" value="组合">组合<br><br>
+                    <input type="radio" name="type" value="男" required>男
+                    <input type="radio" name="type" value="女" required>女
+                    <input type="radio" name="type" value="组合" required>组合<br><br>
                             
                 <label>国家：</label><br>
                 <input name="country"><br><br>
@@ -299,7 +299,7 @@ def list_singers(request):
         where_clause = "WHERE " + " AND ".join(filters) if filters else ""
 
         sql = f"""
-            SELECT singer_name, type, country
+            SELECT singer_id, singer_name, type, country
             FROM Singer
             {where_clause}
             ORDER BY singer_name ASC
@@ -310,7 +310,7 @@ def list_singers(request):
             rows = cursor.fetchall()
 
         # ------------------------
-        # 3. 查询数量
+        # 5. 查询数量
         # ------------------------
         sql_count = f"""
             SELECT COUNT(*)
@@ -322,37 +322,175 @@ def list_singers(request):
             cursor.execute(sql_count, params)
             total = cursor.fetchone()[0]
 
-        # --------------------------
-        # 4. 输出查找结果
-        # --------------------------
 
-        # 转换为 JSON 格式
-        result = []
-        for r in rows:
-            result.append({
-                "singer_name": r[0],
-                "type": r[1],
-                "country": r[2],
-            })
-        singers_list= "".join(
-            f"<li>歌手名：{r['singer_name']} | 类型：{r['type']} | 国家：{r['country']}</li>" 
-            for r in result
-        )
+        # --------------------------
+        # 6. 生成歌手 HTML
+        # --------------------------
+        singers_html = ""
+        for (singer_id, singer_name, type, country) in rows:
+            singers_html += f"""
+                <div style="border:1px solid #ccc; padding:10px; margin-bottom:10px;">
+                    <h4>{singer_name}</h4>
+                    <p>类型：{type}</p>
+                    <p>国籍：{country}</p>
+                    <p>
+                        {f"<a href='/singer/profile/{singer_id}/'>歌手详情</a>"}
+                    </p>
+                </div>
+            """
+
+        # --------------------------
+        # 7. 输出查找结果
+        # --------------------------
         return HttpResponse(f"""
-            <h2>歌手搜索结构</h2>
-            <h2>歌手数:{total}</h2>            
-            <ul>
-                {singers_list if singers_list else '<li>无符合条件歌手</li>'}
-            </ul>
+            <h2>歌手搜索结果</h2>
+            <p>符合条件歌手数:<strong>{total}</strong></p>
             <p><a href="/user/profile/">返回个人中心</a></p>
+
+            <hr>
+            {singers_html}
+            <hr>
         """)
     
     return json_cn({"error": "GET or POST required"}, 400)
 
 
 
+
 # ================================
-# 4. 新增专辑（管理员权限）
+# 4. 歌手详情
+# ================================
+# http://127.0.0.1:8000/singer/profile/3/
+@csrf_exempt
+def singer_profile(request, singer_id):
+    # --------------------------
+    # 1. 检查登录状态
+    # --------------------------
+    if "user_id" not in request.session:
+        return HttpResponse("""
+            <h2>请先登录后再进行查看操作</h2>
+            <p><a href="/user/login/">返回登录</a></p>
+        """, status=403)
+
+    uid = request.session["user_id"]
+
+    # --------------------------
+    # 2. 查询歌手信息
+    # --------------------------
+    sql_list = """
+        SELECT singer_name, type, country, birthday, introduction
+        FROM Singer
+        WHERE singer_id = %s
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(sql_list, [singer_id])
+        row = cursor.fetchone()
+
+    if not row:
+        return HttpResponse("""
+            <h2>歌手不存在</h2>
+            <p><a href="/singer/list_singers/">返回歌手列表</a></p>
+        """, status=404)
+
+    singer_name, type, country, birthday, introduction = row
+
+
+    # --------------------------
+    # 3. 查询歌手的歌曲列表
+    # --------------------------
+    sql_songs = """
+        SELECT 
+            s.song_title,
+            s.duration,
+            a.album_title
+        FROM Song s
+        JOIN Album a ON s.album_id = a.album_id
+        JOIN Song_Singer ss ON s.song_id = ss.song_id
+        WHERE ss.singer_id = %s
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql_songs, [singer_id])
+        song_rows = cursor.fetchall()
+
+    # --------------------------
+    # 4. 生成歌手歌曲 HTML
+    # --------------------------
+    songs_html = ""
+    for (song_title, duration, album_title) in song_rows:
+        songs_html += f"""
+            <div style="border:1px solid #ccc; padding:10px; margin-bottom:10px;">
+                <h4>{song_title}</h4>
+                <p>所属专辑：{album_title}</p>
+                <p>时长：{format_time(duration)}</p>
+
+
+            </div>
+        """
+
+    if not songs_html:
+        songs_html = "<p>该歌手还没有任何歌曲。</p>"
+
+
+    # --------------------------
+    # 5. 查询歌手的专辑列表
+    # --------------------------
+    sql_albums = """
+        SELECT 
+            a.album_id,
+            a.album_title,
+            a.release_date
+        FROM Album a
+        JOIN Singer s ON s.singer_id = a.singer_id
+        WHERE s.singer_id = %s
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql_albums, [singer_id])
+        album_rows = cursor.fetchall()
+
+    # --------------------------
+    # 6. 生成歌手专辑 HTML
+    # --------------------------
+    albums_html = ""
+    for (album_id, album_title, release_date) in album_rows:
+        albums_html += f"""
+            <div style="border:1px solid #ccc; padding:10px; margin-bottom:10px;">
+                <h4>{album_title}</h4>
+                <p>发行日期：{release_date}</p>
+                <p><a href="/album/profile/{album_id}/">详情</a></p>
+            </div>
+        """
+
+    if not albums_html:
+        albums_html = "<p>该歌手还没有任何专辑。</p>"
+
+    # --------------------------
+    # 7. 生成最终 HTML
+    # --------------------------
+    return HttpResponse(f"""
+        <h2>歌手详情：{singer_name}</h2>
+        <p>歌手类别：{type}</p>
+        <p>歌手国籍：{country or "无"}</p>
+        <p>歌手生日：{birthday or "无"}</p>
+        <p>歌手介绍：{introduction or "无"}</p>
+        <p>歌曲数量：{len(song_rows)}</p>
+        <p><a href="/singer/list_singers/">返回歌手列表</a></p>
+
+        <hr>
+        <h3>歌手歌曲列表</h3>
+        {songs_html}
+        <hr>
+
+        <hr>
+        <h3>歌手专辑列表</h3>
+        {albums_html}
+        <hr>
+    """)
+
+
+# ================================
+# 5. 新增专辑（管理员权限）
 # ================================
 # http://127.0.0.1:8000/Administrator/album/admin_add_album/ ^
 @csrf_exempt
@@ -486,7 +624,7 @@ def admin_add_album(request):
 
 
 # ================================
-# 5. 删除专辑（管理员权限）
+# 6. 删除专辑（管理员权限）
 # ================================
 # http://127.0.0.1:8000/Administrator/album/admin_delete_album/ 
 @csrf_exempt
@@ -573,7 +711,7 @@ def admin_delete_album(request):
 
 
 # ================================
-# 6. 查看专辑详情
+# 7. 查看专辑详情
 # ================================
 # http://127.0.0.1:8000/album/album_detail/ 
 @csrf_exempt
@@ -634,11 +772,9 @@ def album_detail(request):
         # 4. 查询专辑信息
         # --------------------------
         sql_album = """
-            SELECT a.album_title, s.singer_name, a.release_date, a.description, 
-                   IFNULL(SUM(song.duration), 0) AS total_duration
+            SELECT a.album_title, sg.singer_name, a.release_date, a.album_id
             FROM Album a
-            JOIN Singer s ON a.singer_id = s.singer_id
-            LEFT JOIN Song song ON song.album_id = a.album_id
+            JOIN Singer sg ON a.singer_id = sg.singer_id
         """
 
         if filters:
@@ -662,15 +798,15 @@ def album_detail(request):
         # 5. 将信息转成HTML
         # --------------------------
         albums_html = ""
-        for r in rows:
-            album_title, singer_name, release_date, description, total_duration = r
-            minutes = total_duration // 60
-            seconds = total_duration % 60
-            albums_html += (
-                f"<li>专辑名：{album_title} | 歌手名：{singer_name} | "
-                f" 发行日期：{release_date} | 专辑总时长：{minutes}分{seconds}秒 |<br>"
-                f" 专辑简介：{description} | </li>"
-            )
+        for (album_title, singer_name, release_date, album_id) in rows:
+            albums_html += f"""
+                <div style="border:1px solid #ccc; padding:10px; margin-bottom:10px;">
+                    <h4>{album_title}</h4>
+                    <p>歌手名：{singer_name}</p>
+                    <p>发行日期：{release_date}</p>
+                    <p><a href="/album/profile/{album_id}/">详情</a></p>
+                </div>
+            """
 
         return HttpResponse(f"""
             <h2>搜索结果</h2>
@@ -684,9 +820,130 @@ def album_detail(request):
 
 
 
+# ================================
+# 8. 专辑详情
+# ================================
+# http://127.0.0.1:8000/album/profile/3/
+@csrf_exempt
+def album_profile(request, album_id):
+    # --------------------------
+    # 1. 检查登录状态
+    # --------------------------
+    if "user_id" not in request.session:
+        return HttpResponse("""
+            <h2>请先登录后再进行查看操作</h2>
+            <p><a href="/user/login/">返回登录</a></p>
+        """, status=403)
+
+    uid = request.session["user_id"]
+
+    # --------------------------
+    # 2. 查询专辑信息
+    # --------------------------
+    sql_list = """
+        SELECT album_title, release_date, cover_url, description, sg.singer_name, sg.singer_id
+        FROM Album a
+        JOIN Singer sg ON sg.singer_id = a.singer_id
+        WHERE a.album_id = %s
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(sql_list, [album_id])
+        row = cursor.fetchone()
+
+    if not row:
+        return HttpResponse("""
+            <h2>专辑不存在</h2>
+            <p><a href="/album/album_detail/">返回专辑列表</a></p>
+        """, status=404)
+
+    album_title, release_date, cover_url, descprition, singer_name, singer_id = row
+
+
+    # --------------------------
+    # 3. 查询专辑的歌曲列表
+    # --------------------------
+    sql_albums = """
+        SELECT 
+            s.song_id,
+            s.song_title,
+            s.duration
+        FROM Album a
+        JOIN Song s ON s.album_id = a.album_id       
+        WHERE a.album_id = %s
+    """
+
+    sql_total_duration = """
+        SELECT 
+            IFNULL(SUM(s.duration), 0) AS total_duration
+        FROM Album a
+        JOIN Song s ON s.album_id = a.album_id
+        WHERE a.album_id = %s
+    """
+
+    sql_singers = """
+        SELECT
+            sg.singer_name
+        FROM Singer sg
+        JOIN Song_Singer ss ON ss.singer_id = sg.singer_id
+        WHERE ss.song_id = %s
+    """
+
+    # --------------------------
+    # 4. 查询并生成专辑 HTML
+    # --------------------------
+    songs_html = ""
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql_albums, [album_id])
+        song_rows = cursor.fetchall()
+
+        cursor.execute(sql_total_duration, [album_id])
+        total_duration = cursor.fetchone()[0]
+        min = total_duration // 60
+        sec = total_duration % 60
+        
+        for (song_id, song_title, duration) in song_rows :
+            cursor.execute(sql_singers , [song_id])
+            singer_rows = cursor.fetchall()
+            singer_names = "、".join([row[0] for row in singer_rows]) if singer_rows else "未知"
+
+            songs_html += f"""
+                <div style="border:1px solid #ccc; padding:10px; margin-bottom:10px;">
+                    <h4>{song_title}</h4>
+                    <p>时长：{format_time(duration)}</p>
+                    <p>歌手：{singer_names}</p>
+
+
+                </div>
+            """
+        if songs_html == "" :
+            songs_html = (f"<p>该专辑没有任何歌曲</p>")
+
+    # --------------------------
+    # 5. 生成最终 HTML
+    # --------------------------
+    return HttpResponse(f"""
+        <h2>专辑详情：{album_title}</h2>
+        <img src="{cover_url}" style="width:180px;height:180px;">
+        <p>歌手：{singer_name} <a href="/singer/profile/{singer_id}/">详情</a></p>
+        <p>发行日期：{release_date}</p>
+        <p>专辑描述：{descprition or "无"}</p>
+        <p>歌曲数量：{len(song_rows)}</p>
+        <p>专辑总时长：{min}:{sec}</p>
+        <p><a href="/album/album_detail/">返回专辑列表</a></p>
+
+        <hr>
+        <h3>专辑歌曲列表</h3>
+        {songs_html}
+
+        <hr>
+    """)
+
+
+
 
 # ================================
-# 7. 添加歌曲（管理员权限）
+# 9. 添加歌曲（管理员权限）
 # ================================
 # http://127.0.0.1:8000/Administrator/song/admin_add_song/ 
 @csrf_exempt
@@ -843,7 +1100,7 @@ def admin_add_song(request):
 
 
 # ================================
-# 8. 删除歌曲（管理员权限）
+# 10. 删除歌曲（管理员权限）
 # ================================
 # http://127.0.0.1:8000/Administrator/song/admin_delete_song/ 
 @csrf_exempt
@@ -953,7 +1210,7 @@ def admin_delete_song(request):
 
 
 # ================================
-# 9. 查看歌曲详情
+# 11. 搜索歌曲
 # ================================
 # http://127.0.0.1:8000/song/song_detail/ 
 @csrf_exempt
@@ -1048,27 +1305,28 @@ def song_detail(request):
             if not rows:
                 HttpResponse(f"""
                         <h2>未找到符合歌曲</h2><br>          
-                        <p><a href="/user/profile/">返回个人界面</a></p>
+                        <p><a href="/song/song_detail/">返回搜索界面</a></p>
                     """)
                 
             # --------------------------
             # 5. 将信息转成HTML
             # --------------------------
             songs_html = ""
-            for row in rows:
-                song_id, song_title, duration, album_title = row
-                minutes = duration // 60
-                seconds = duration % 60
-                
+            for (song_id, song_title, duration, album_title) in rows :
                 cursor.execute(sql_singers, [song_id])
                 singer_rows = cursor.fetchall()
-                singers_name = [r[0] for r in singer_rows]
+                singer_names = "、".join([row[0] for row in singer_rows]) if singer_rows else "未知"
 
+                songs_html += f"""
+                    <div style="border:1px solid #ccc; padding:10px; margin-bottom:10px;">
+                        <h4>歌曲名：{song_title}</h4> 
+                        <p>歌手：{singer_names}</p>
+                        <p>专辑：{album_title}</p>
+                        <p>时长：{format_time(duration)}</p>
 
-                songs_html += (
-                    f"<li>歌曲名：{song_title} | 歌手名：{singers_name} | "
-                    f" 所属专辑：{album_title} | 时长：{minutes}分{seconds}秒 |</li>"
-                )
+                        <p><a href="/song/profile/{song_id}/">详情</a></p>
+                    </div>
+                """
 
         return HttpResponse(f"""
             <h2>搜索结果</h2>
@@ -1080,3 +1338,61 @@ def song_detail(request):
     
     return json_cn({"error": "GET or POST required"}, 400)
 
+
+
+
+# ================================
+# 12. 歌曲详情
+# ================================
+# http://127.0.0.1:8000/song/profile/3/
+@csrf_exempt
+def song_profile(request, song_id):
+    # --------------------------
+    # 1. 检查登录状态
+    # --------------------------
+    if "user_id" not in request.session:
+        return HttpResponse("""
+            <h2>请先登录后再进行查看操作</h2>
+            <p><a href="/user/login/">返回登录</a></p>
+        """, status=403)
+
+    uid = request.session["user_id"]
+
+    # --------------------------
+    # 2. 查询歌曲信息
+    # --------------------------
+    sql_song = """
+        SELECT s.song_id, s.song_title, s.duration, a.album_title
+        FROM Song s
+        JOIN Album a ON a.album_id = s.album_id
+        WHERE s.song_id = %s
+    """
+
+    sql_singer = """
+        SELECT sg.singer_id, sg.singer_name
+        FROM Singer sg
+        JOIN Song_Singer ss ON ss.singer_id = sg.singer_id
+        WHERE ss.song_id = %s
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(sql_song, [song_id])
+        song_row = cursor.fetchone()
+        song_id, song_title, duration, album_title = song_row
+
+        cursor.execute(sql_singer, [song_id])
+        singer_rows = cursor.fetchall()
+        singer_names = "、".join([row[1] for row in singer_rows]) if singer_rows else "未知"
+
+
+    # --------------------------
+    # 3. 生成最终 HTML
+    # --------------------------
+    return HttpResponse(f"""
+        <h2>歌名：{song_title}</h2>
+        <p>歌手：{singer_names}</a></p>
+        <p>所属专辑：{album_title}</p>
+        <p>时长：{format_time(duration)}</p>
+        <p><a href="/song/song_detail/">返回歌曲列表</a></p>
+
+    """)
