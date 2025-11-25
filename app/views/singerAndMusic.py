@@ -8,6 +8,34 @@ from .tools import *
 
 
 # ================================
+# 0. 音乐中心
+# ================================
+# http://127.0.0.1:8000/music/
+@csrf_exempt
+def music(request):
+    # --------------------------
+    # 1. 检查登录状态
+    # --------------------------
+    if "user_id" not in request.session:
+        return HttpResponse("""
+            <h2>请先登录后再进行查看操作</h2>
+            <p><a href="/user/login/">返回登录</a></p>
+        """, status=403)
+
+    uid = request.session["user_id"]
+
+    return HttpResponse(f"""
+        
+        <p><a href="/user/profile/{uid}/">返回个人界面</a></p>
+
+        <p><a href="/singer/search_singer/">搜索歌手</a></p>
+        <p><a href="/album/search_album/">搜索专辑</a></p>
+        <p><a href="/song/search_song/">搜索歌曲</a></p>
+    
+    """)
+
+
+# ================================
 # 1. 新增歌手（管理员权限）
 # ================================
 # http://127.0.0.1:8000/Administrator/singer/admin_add_singer/ 
@@ -226,11 +254,11 @@ def admin_delete_singer(request):
 
 
 # ================================
-# 3. 查看歌手列表
+# 3. 搜索歌手
 # ================================
-# http://127.0.0.1:8000/singer/list_singers/ 
+# http://127.0.0.1:8000/singer/search_singers/ 
 @csrf_exempt
-def list_singers(request):
+def search_singers(request):
     # --------------------------
     # 1. 登录校验
     # --------------------------
@@ -711,11 +739,11 @@ def admin_delete_album(request):
 
 
 # ================================
-# 7. 查看专辑详情
+# 7. 搜索专辑
 # ================================
-# http://127.0.0.1:8000/album/album_detail/ 
+# http://127.0.0.1:8000/album/search_album/ 
 @csrf_exempt
-def album_detail(request):
+def search_album(request):
     # --------------------------
     # 1. 登录校验
     # --------------------------
@@ -1212,9 +1240,9 @@ def admin_delete_song(request):
 # ================================
 # 11. 搜索歌曲
 # ================================
-# http://127.0.0.1:8000/song/song_detail/ 
+# http://127.0.0.1:8000/song/search_song/ 
 @csrf_exempt
-def song_detail(request):
+def search_song(request):
     # --------------------------
     # 1. 登录校验
     # --------------------------

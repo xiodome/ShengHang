@@ -242,9 +242,9 @@ def login(request):
                 <p><a href="/Administrator/profile/">管理员界面</a></p>
             """)
         
-        return HttpResponse("""
+        return HttpResponse(f"""
                 <h2>登录成功</h2>
-                <p><a href="/user/profile/">个人界面</a></p>
+                <p><a href="/user/profile/{uid}/">个人界面</a></p>
             """)
     
     return json_cn({"error": "GET or POST required"}, 400)
@@ -266,17 +266,19 @@ def logout(request):
             <h2>您尚未登录</h2>
             <p><a href="/user/login/">点击前往登录</a></p>
         """, status=403)
-
+    user_id = request.session["user_id"]
 
     # ----------------------------
     # 2. 显示退出确认页
     # ----------------------------
     if request.method == "GET":
-        return HttpResponse("""
+        return HttpResponse(f"""
             <h2>退出登录</h2>
             <p>确定要退出吗？</p>
             <form method="POST">
                 <button type="submit">确认退出</button>
+                            
+                <p><a href="/user/profile/{user_id}/">取消</a></p>
             </form>
         """)
 
@@ -327,7 +329,7 @@ def delete_account(request):
                 </button>
             </form>
             <br>
-            <p><a href="/user/profile/">返回个人中心</a></p>
+            <p><a href="/user/profile/{user_id}/">取消</a></p>
         """)
 
 
@@ -416,7 +418,7 @@ def change_password(request):
     # 2. 修改密码界面
     # --------------------------
     if request.method == "GET":
-        return HttpResponse("""
+        return HttpResponse(f"""
             <h2>修改密码</h2>
             <form method="POST">
                 <label>旧密码：</label><br>
@@ -428,7 +430,7 @@ def change_password(request):
                 <button type="submit">确认修改</button>
             </form>
             <br>
-            <p><a href="/user/profile/">返回个人中心</a></p>
+            <p><a href="/user/profile/{uid}/">取消</a></p>
         """)
 
 
@@ -484,9 +486,9 @@ def change_password(request):
 
             cursor.execute(sql_update, [new_pw, uid])
 
-        return HttpResponse("""
+        return HttpResponse(f"""
             <h2>密码修改成功</h2>
-            <p><a href="/user/profile/">返回个人中心</a></p>
+            <p><a href="/user/profile/{uid}/">返回个人中心</a></p>
         """)
 
     
@@ -496,9 +498,9 @@ def change_password(request):
 # ================================
 # 5. 个人界面
 # ================================
-# http://127.0.0.1:8000/user/profile/
+# http://127.0.0.1:8000/user/profile/3/
 @csrf_exempt
-def profile(request):
+def profile(request, owner_id):
     # --------------------------
     # 1. 登录校验
     # --------------------------
@@ -508,6 +510,11 @@ def profile(request):
             <h2>请先登录</h2>
             <p><a href="/user/login/">点击前往登录</a></p>
         """)
+    # 判断是否为本人
+    if owner_id != user_id :
+        guest = 1
+    else :
+        guest = 0
 
     # --------------------------
     # 2. 查询个人信息
@@ -518,7 +525,7 @@ def profile(request):
     """
 
     with connection.cursor() as cursor:
-        cursor.execute(sql, [user_id])
+        cursor.execute(sql, [owner_id])
         row = cursor.fetchone()
 
         if not row:
@@ -535,6 +542,36 @@ def profile(request):
     profile_text = profile_text if profile_text else "无"
     birthday = birthday if birthday else "无"
 
+
+    # --------------------------
+    # 4. 设置可见性
+    # --------------------------
+    if guest == 1:
+        # 游客模式：只显示最基本内容
+        function_html = f"""
+            <p><em>您当前处于游客模式，仅可浏览基本信息。</em></p>
+            <p><a href="/user/profile/{user_id}/">返回个人界面</a></p>
+
+        """
+    else:
+        # 正常用户：显示全部功能
+        function_html = f"""
+            <p><a href="/music/">音乐中心</a></p>
+
+            <p><a href="/songlist/list_songlists/">我的歌单</a></p>
+
+            <p><a href="/user/get_user_info/">查看其他用户信息</a></p>
+            <p><a href="/user/{user_id}/get_followers/">查看粉丝列表</a></p>
+            <p><a href="/user/{user_id}/get_followsingers/">查看关注歌手列表</a></p>
+            <p><a href="/user/{user_id}/get_followings/">查看关注列表</a></p>
+            <p><a href="/user/follow_singer/">关注/取关歌手</a></p>
+            <p><a href="/user/follow_user/">关注/取关用户</a></p>
+            <p><a href="/user/update_profile/">修改个人信息</a></p>
+            <p><a href="/user/change_password/">修改密码</a></p>
+            <p><a href="/user/delete_account/">注销账号</a></p>
+            <p><a href="/user/logout/">退出登录</a></p>
+        """
+
     # --------------------------
     # 4. 显示个人信息和功能
     # --------------------------
@@ -547,29 +584,14 @@ def profile(request):
         <p><strong>地区：</strong> {region}</p>
         <p><strong>邮箱：</strong> {email}</p>
         <p><strong>个人简介：</strong> {profile_text}</p>
-
         <br> 
-        <p><a href="/songlist/list_songlists/">我的歌单</a></p>
-
-        <p><a href="/song/song_detail/">搜索歌曲</a></p>
-        <p><a href="/singer/list_singers/">搜索歌手</a></p>
-        <p><a href="/album/album_detail/">搜索专辑</a></p>
-
-        <p><a href="/user/get_user_info/">查看其他用户信息</a></p>
-        <p><a href="/user/{user_id}/get_followers/">查看粉丝列表</a></p>
-        <p><a href="/user/{user_id}/get_followsingers/">查看关注歌手列表</a></p>
-        <p><a href="/user/{user_id}/get_followings/">查看关注列表</a></p>
-        <p><a href="/user/follow_singer/">关注/取关歌手</a></p>
-        <p><a href="/user/follow_user/">关注/取关用户</a></p>
-        <p><a href="/user/update_profile/">修改个人信息</a></p>
-        <p><a href="/user/change_password/">修改密码</a></p>
-        <p><a href="/user/delete_account/">注销账号</a></p>
-        <p><a href="/user/logout/">退出登录</a></p>
+        
+        {function_html}
     """)
 
 
 # ================================
-# 5. 修改个人信息
+# 6. 修改个人信息
 # gender, birthday, region, profile 等
 # ================================
 # http://127.0.0.1:8000/user/update_profile/ 
@@ -613,7 +635,7 @@ def update_profile(request):
                 <textarea name="profile"></textarea><br><br>
 
                 <button type="submit">提交修改</button>
-                <p><a href="/user/profile/">返回个人中心</a></p>
+                <p><a href="/user/profile/{uid}/">返回个人中心</a></p>
             </form>
         """)
 
@@ -644,17 +666,17 @@ def update_profile(request):
                     with connection.cursor() as cursor:
                         cursor.execute(sql_check_email, [data[key], uid])
                         if cursor.fetchone():
-                            return HttpResponse("""
+                            return HttpResponse(f"""
                                 <h2>邮箱已存在</h2>
-                                <p><a href="/user/profile/">返回个人中心</a></p>
+                                <p><a href="/user/profile/{uid}/">返回个人中心</a></p>
                             """)
                 fields.append(f"{key}=%s")
                 values.append(data[key])
 
         if not fields:
-            return HttpResponse("""
+            return HttpResponse(f"""
                 <h2>请输入修改信息</h2>
-                <p><a href="/user/profile/">返回个人中心</a></p>
+                <p><a href="/user/profile/{uid}/">返回个人中心</a></p>
             """)
 
         # --------------------------
@@ -666,9 +688,9 @@ def update_profile(request):
         with connection.cursor() as cursor:
             cursor.execute(sql_update, values)
 
-        return HttpResponse("""
+        return HttpResponse(f"""
             <h2>个人信息修改成功</h2>
-            <p><a href="/user/profile/">返回个人中心</a></p>
+            <p><a href="/user/profile/{uid}/">返回个人中心</a></p>
         """)
 
     return json_cn({"error": "GET or POST required"}, 400)
@@ -713,7 +735,7 @@ def follow_user(request):
                     <input type="radio" name="action" value="unfollow">取关<br><br>
 
                 <button type="submit">执行</button>
-                <p><a href="/user/profile/">返回个人中心</a></p>
+                <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
             </form>
         """)
 
@@ -740,9 +762,9 @@ def follow_user(request):
             row = cursor.fetchone()
 
         if not row:
-            return HttpResponse("""
+            return HttpResponse(f"""
                 <h2>用户不存在</h2>
-                <p><a href="/user/profile/">返回个人中心</a></p>
+                <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
             """)
 
         target_uid = row[0]
@@ -751,9 +773,9 @@ def follow_user(request):
         # 3. 不允许操作自己
         # --------------------------
         if target_uid == follower:
-            return HttpResponse("""
+            return HttpResponse(f"""
                 <h2>不能对自己进行操作</h2>
-                <p><a href="/user/profile/">返回个人中心</a></p>
+                <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
             """)
 
         # --------------------------
@@ -770,9 +792,9 @@ def follow_user(request):
             with connection.cursor() as cursor:
                 cursor.execute(sql_check, [follower, target_uid])
                 if cursor.fetchone():
-                    return HttpResponse("""
+                    return HttpResponse(f"""
                         <h2>已关注该用户</h2>
-                        <p><a href="/user/profile/">返回个人中心</a></p>
+                        <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
                     """)
 
             # 插入关注关系
@@ -782,9 +804,9 @@ def follow_user(request):
             with connection.cursor() as cursor:
                 cursor.execute(sql_follow, [follower, target_uid])
 
-            return HttpResponse("""
+            return HttpResponse(f"""
                 <h2>关注成功</h2>
-                <p><a href="/user/profile/">返回个人中心</a></p>
+                <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
             """)
 
         # --------------------------
@@ -799,14 +821,14 @@ def follow_user(request):
             with connection.cursor() as cursor:
                 cursor.execute(sql_unfollow, [follower, target_uid])
                 if cursor.rowcount == 0:
-                    return HttpResponse("""
+                    return HttpResponse(f"""
                         <h2>未关注该用户不能取关</h2>
-                        <p><a href="/user/profile/">返回个人中心</a></p>
+                        <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
                     """)
 
-            return HttpResponse("""
+            return HttpResponse(f"""
                 <h2>取关成功</h2>
-                <p><a href="/user/profile/">返回个人中心</a></p>
+                <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
             """)
 
     return json_cn({"error": "GET or POST required"}, 400)
@@ -849,7 +871,7 @@ def follow_singer(request):
                     <input type="radio" name="action" value="unfollow">取关<br><br>
 
                 <button type="submit">执行</button>
-                <p><a href="/user/profile/">返回个人中心</a></p>
+                <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
             </form>
         """)
     
@@ -877,9 +899,9 @@ def follow_singer(request):
             row = cursor.fetchone()
 
         if not row:
-            return HttpResponse("""
+            return HttpResponse(f"""
                         <h2>目标歌手不存在</h2>
-                        <p><a href="/user/profile/">返回个人中心</a></p>
+                        <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
                     """)
 
         target_uid = row[0]
@@ -897,9 +919,9 @@ def follow_singer(request):
             with connection.cursor() as cursor:
                 cursor.execute(sql_check, [follower, target_uid])
                 if cursor.fetchone():
-                    return HttpResponse("""
+                    return HttpResponse(f"""
                         <h2>已关注该歌手</h2>
-                        <p><a href="/user/profile/">返回个人中心</a></p>
+                        <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
                     """)
 
             # 插入关注关系
@@ -909,9 +931,9 @@ def follow_singer(request):
             with connection.cursor() as cursor:
                 cursor.execute(sql_follow, [follower, target_uid])
 
-            return HttpResponse("""
+            return HttpResponse(f"""
                         <h2>关注成功</h2>
-                        <p><a href="/user/profile/">返回个人中心</a></p>
+                        <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
                     """)
 
         # --------------------------
@@ -926,14 +948,14 @@ def follow_singer(request):
             with connection.cursor() as cursor:
                 cursor.execute(sql_unfollow, [follower, target_uid])
                 if cursor.rowcount == 0:
-                    return HttpResponse("""
+                    return HttpResponse(f"""
                         <h2>未关注该歌手不能取关</h2>
-                        <p><a href="/user/profile/">返回个人中心</a></p>
+                        <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
                     """)
 
-            return HttpResponse("""
+            return HttpResponse(f"""
                 <h2>取关成功</h2>
-                <p><a href="/user/profile/">返回个人中心</a></p>
+                <p><a href="/user/profile/{follower}/">返回个人中心</a></p>
             """)
         
     return json_cn({"error": "GET or POST required"}, 400)
@@ -999,7 +1021,7 @@ def get_followings(request, uid):
             <ul>
                 {following_list if following_list else '<li>暂无关注用户</li>'}
             </ul>
-            <p><a href="/user/profile/">返回个人中心</a></p>
+            <p><a href="/user/profile/{login_user_id}/">返回个人中心</a></p>
         """)
 
     return json_cn({"关注数：": total_count,
@@ -1063,7 +1085,7 @@ def get_followers(request, uid):
             <ul>
                 {fan_list if fan_list else '<li>暂无粉丝</li>'}
             </ul>
-            <p><a href="/user/profile/">返回个人中心</a></p>
+            <p><a href="/user/profile/{login_user_id}/">返回个人中心</a></p>
         """)
 
     return json_cn({"粉丝数：": total_count,
@@ -1127,7 +1149,7 @@ def get_followsingers(request, uid):
             <ul>
                 {follow_singers_list if follow_singers_list else '<li>暂无关注歌手</li>'}
             </ul>
-            <p><a href="/user/profile/">返回个人中心</a></p>
+            <p><a href="/user/profile/{login_user_id}/">返回个人中心</a></p>
         """)
 
     return json_cn({"关注歌手数：": total_count,
@@ -1149,6 +1171,7 @@ def get_user_info(request):
             <h3 style="color:red;">请先登录</h3>
             <a href="/user/login/">去登录</a>
         """)
+    user_id = request.session["user_id"]
     
     if request.method == "GET":
 
@@ -1163,7 +1186,7 @@ def get_user_info(request):
                 <label>用户名：</label><br>
                 <input name="user_name" required><br><br>
                             
-                <button type="submit">执行</button>
+                <button type="submit">查找</button>
                 <p><a href="/user/profile/">返回个人中心</a></p>
             </form>
         """)
@@ -1181,7 +1204,7 @@ def get_user_info(request):
         user_name = data.get("user_name")
 
         sql = """
-            SELECT user_name, gender, birthday, region, email, profile 
+            SELECT user_name, user_id
             FROM User
             WHERE user_name=%s
         """
@@ -1191,25 +1214,19 @@ def get_user_info(request):
             row = cursor.fetchone()
 
         if not row:
-            return HttpResponse("""
+            return HttpResponse(f"""
                 <h2>用户不存在</h2>
-                <p><a href="/user/profile/">返回个人中心</a></p>
+                <p><a href="/user/profile/{user_id}/">返回个人中心</a></p>
             """)
 
-        username, gender, birthday, region, email, profile = row
+        username, target_user_id = row
 
         # --------------------------
         # 4. 展示用户信息
         # --------------------------
         return HttpResponse(f"""
-                <h2>个人信息</h2>
                 <p><strong>用户名：</strong> {username}</p>
-                <p><strong>性别：</strong> {gender}</p>
-                <p><strong>生日：</strong> {birthday}</p>
-                <p><strong>地区：</strong> {region}</p>
-                <p><strong>邮箱：</strong> {email}</p>
-                <p><strong>个人简介：</strong> {profile}</p>
-                <p><a href="/user/profile/">返回个人中心</a></p>
+                <p><a href="/user/profile/{target_user_id}/">用户个人中心</a></p>
             """)
     
     return json_cn({"error": "GET or POST required"}, 400)

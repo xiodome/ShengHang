@@ -20,7 +20,7 @@ urlpatterns = [
     path("user/logout/", user.logout),
     path("user/delete_account/", user.delete_account),
     path("user/change_password/", user.change_password),
-    path("user/profile/", user.profile),
+    path("user/profile/<int:owner_id>/", user.profile),
     path("user/update_profile/", user.update_profile),
     path("user/follow_user/", user.follow_user),
     path("user/follow_singer/", user.follow_singer),
@@ -31,17 +31,18 @@ urlpatterns = [
     path("Administrator/profile/", user.admin_profile),
 
     # 歌手与音乐管理模块
+    path("music/", miusic.music),
     path("Administrator/singer/admin_add_singer/", miusic.admin_add_singer),
     path("Administrator/singer/admin_delete_singer/", miusic.admin_delete_singer),
-    path("singer/list_singers/", miusic.list_singers),
+    path("singer/search_singers/", miusic.search_singers),
     path("singer/profile/<int:singer_id>/", miusic.singer_profile),
     path("Administrator/album/admin_add_album/", miusic.admin_add_album),
     path("Administrator/album/admin_delete_album/", miusic.admin_delete_album),
-    path("album/album_detail/", miusic.album_detail),
+    path("album/search_album/", miusic.search_album),
     path("album/profile/<int:album_id>/", miusic.album_profile),
     path("Administrator/song/admin_add_song/", miusic.admin_add_song),
     path("Administrator/song/admin_delete_song/", miusic.admin_delete_song),
-    path("song/song_detail/", miusic.song_detail),
+    path("song/search_song/", miusic.search_song),
     path("song/profile/<int:song_id>/", miusic.song_profile),
 
     # 收藏与歌单模块
