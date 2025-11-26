@@ -61,7 +61,7 @@ class Singer(models.Model):
 class Album(models.Model):
     album_id        = models.AutoField(primary_key=True,                                                verbose_name='专辑编号')
     album_title      = models.CharField(max_length=192,                                                  verbose_name='专辑名称')
-    singer_id       = models.ForeignKey('Singer', on_delete=models.CASCADE,                             verbose_name='所属歌手')
+    singer       = models.ForeignKey('Singer', on_delete=models.CASCADE,                             verbose_name='所属歌手')
     release_date    = models.DateField(default='1970-01-01',                                            verbose_name='发行日期')
     cover_url       = models.CharField(max_length=255, default='/images/default_album_cover.jpg',   verbose_name='专辑封面路径')
     description     = models.CharField(max_length=3072, null=True, blank=True,                          verbose_name='专辑简介')
@@ -79,7 +79,7 @@ class Album(models.Model):
 class Song(models.Model):
     song_id     = models.AutoField(primary_key=True,                    verbose_name='歌曲编号')
     song_title  = models.CharField(max_length=192,                      verbose_name='歌曲名称')
-    album_id    = models.ForeignKey('Album', on_delete=models.CASCADE,  verbose_name='所属专辑')
+    album    = models.ForeignKey('Album', on_delete=models.CASCADE,  verbose_name='所属专辑')
     duration    = models.IntegerField(                                  verbose_name='歌曲时长')
     file_url    = models.CharField(max_length=255,                  verbose_name='音频文件路径')
     play_count  = models.IntegerField(default=0,                  verbose_name='歌曲播放总次数')
@@ -97,8 +97,8 @@ class Song(models.Model):
 class Songlist(models.Model):
     songlist_id     = models.AutoField(primary_key=True,                                                verbose_name='歌单编号')
     songlist_title  = models.CharField(max_length=192,                                                  verbose_name='歌单名称')
-    user_id         = models.ForeignKey('User', on_delete=models.CASCADE,                               verbose_name='创建者ID')
-    description     = models.CharField(max_length=3072,                                                 verbose_name='歌单简介')
+    user         = models.ForeignKey('User', on_delete=models.CASCADE,                               verbose_name='创建者ID')
+    description     = models.CharField(max_length=3072,  null=True, blank=True,                         verbose_name='歌单简介')
     create_time     = models.DateTimeField(auto_now_add=True,                                           verbose_name='创建时间')
     cover_url       = models.CharField(max_length=255, default='/images/default_songlist_cover.jpg',    verbose_name='封面路径')
     like_count      = models.IntegerField(default=0,                                                      verbose_name='点赞数')
@@ -118,7 +118,7 @@ class Comment(models.Model):
     TARGET_TYPE_CHOICES = [
         ('song', 'song'),
         ('album', 'album'),
-        ('songlis', 'songlis'),
+        ('songlist', 'songlist'),
     ]
 
     STATUS_CHOICES = [
@@ -128,13 +128,14 @@ class Comment(models.Model):
     ]
 
     comment_id      = models.AutoField(primary_key=True,                                verbose_name='评论编号')
-    user_id         = models.ForeignKey('User', on_delete=models.CASCADE,               verbose_name='评论用户')
+    user         = models.ForeignKey('User', on_delete=models.CASCADE,               verbose_name='评论用户')
     target_type     = models.CharField(max_length=10, choices=TARGET_TYPE_CHOICES,   verbose_name='评论目标类型')
     content         = models.CharField(max_length=300,                                  verbose_name='评论内容')
     like_count      = models.IntegerField(default=0,                                      verbose_name='点赞数')
     comment_time    = models.DateTimeField(auto_now_add=True,                           verbose_name='评论时间')
     parent_id       = models.IntegerField(null=True, blank=True,                        verbose_name='父评论ID')
     status          = models.CharField(max_length=3, choices=STATUS_CHOICES,            verbose_name='评论状态')
+    target_id       = models.IntegerField(verbose_name='评论目标ID')
 
     class Meta:
         db_table = 'Comment'
@@ -258,7 +259,7 @@ class SystemLog(models.Model):
 #DROP TABLE songlist_song;
 #DROP TABLE song_singer;
 #DROP TABLE userfollow;
-#DROP TABLE comment;
+#DROP TABLE comment.py;
 #DROP TABLE favorite;
 #DROP TABLE Playhistory;
 #DROP TABLE songlist;

@@ -24,3 +24,19 @@ def require_admin(request):
 
     return True, None
 
+def get_user_id(request):
+    current_user_id = request.session.get("user_id")
+    if not current_user_id:
+        return json_cn({"error": "用户未登录"}, 403)
+
+# ============================================================
+# 辅助工具：将游标结果转换为字典列表
+# ============================================================
+def dictfetchall(cursor):
+    "将游标返回的结果转换为字典"
+    columns = [col[0] for col in cursor.description]
+    return [
+        dict(zip(columns, row))
+        for row in cursor.fetchall()
+    ]
+
