@@ -144,27 +144,27 @@ def initialize_tables():
 
         # 修复评论目标类型
         """
-        ALTER TABLE comment
+        ALTER TABLE comment.py
         MODIFY target_type ENUM('song','album','songlist') 
         """,
 
         # 修复点赞数
         """
-        ALTER TABLE comment
+        ALTER TABLE comment.py
         MODIFY like_count INT
         NOT NULL DEFAULT 0
         """,
 
         # 修复评论时间
         """
-        ALTER TABLE comment
+        ALTER TABLE comment.py
         MODIFY comment_time DATETIME(6)
         NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
         """,
 
         # 修复评论状态
         """
-        ALTER TABLE comment
+        ALTER TABLE comment.py
         MODIFY status ENUM('审核中','举报中','正常')
         NOT NULL
         """,
