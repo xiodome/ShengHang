@@ -88,6 +88,18 @@ def initialize_tables():
         """,
 
         # songlist表
+        # 修改表中错误的外键名字
+        """
+        ALTER TABLE songlist
+        DROP FOREIGN KEY Songlist_user_id_id_c4283d81_fk_User_user_id;
+
+        ALTER TABLE songlist
+        CHANGE COLUMN user_id_id user_id INT NOT NULL;
+
+        ALTER TABLE songlist
+        ADD CONSTRAINT Songlist_user_id_fk FOREIGN KEY (user_id) REFERENCES user(user_id);
+        """,
+
         # 修复创建时间
         """
         ALTER TABLE songlist
@@ -118,6 +130,18 @@ def initialize_tables():
 
 
         # comment表
+        # 修改表中错误的外键名字
+        """
+        ALTER TABLE comment
+        DROP FOREIGN KEY Comment_user_id_id_92454809_fk_User_user_id;
+
+        ALTER TABLE comment
+        CHANGE COLUMN user_id_id user_id INT NOT NULL;
+
+        ALTER TABLE comment
+        ADD CONSTRAINT Comment_user_id_fk FOREIGN KEY (user_id) REFERENCES user(user_id);
+        """,
+
         # 修复评论目标类型
         """
         ALTER TABLE comment.py
