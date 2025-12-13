@@ -68,7 +68,7 @@ def admin_add_singer(request):
                 <input name="country"><br><br>
 
                 <label>生日：</label><br>
-                <input name="type" type="date"><br><br>
+                <input name="birthday" type="date"><br><br>
                             
                 <label>歌手简介：</label><br>
                 <textarea name="introduction"></textarea><br><br>                            
