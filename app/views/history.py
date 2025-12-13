@@ -2,8 +2,7 @@ import json
 import datetime
 from django.db import connection
 from django.views.decorators.csrf import csrf_exempt
-from .tools import *  # 假设 get_user_id 和 json_cn 在这里
-from app.views import json_cn
+from .tools import *  # get_user_id, json_cn, dictfetchall
 
 
 # 记录播放
