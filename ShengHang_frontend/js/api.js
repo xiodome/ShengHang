@@ -159,6 +159,12 @@ const UserAPI = {
     // 管理员资料
     getAdminProfile: () => apiRequest('/Administrator/profile/', {
         method: 'GET'
+    }),
+
+    // 更新个人信息可见性
+    updateVisibility: (visibility) => apiRequest('/user/update_visibility/', {
+        method: 'POST',
+        body: visibility
     })
 };
 
