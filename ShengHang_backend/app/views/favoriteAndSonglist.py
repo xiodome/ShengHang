@@ -782,7 +782,6 @@ def search_songlist(request):
 # ================================
 @csrf_exempt
 def like_songlist(request, songlist_id):
-        
     sql = """
         UPDATE Songlist
         SET like_count = like_count + 1
