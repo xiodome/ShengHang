@@ -28,6 +28,7 @@ def get_user_id(request):
     current_user_id = request.session.get("user_id")
     if not current_user_id:
         return json_cn({"error": "用户未登录"}, 403)
+    return current_user_id
 
 # ============================================================
 # 辅助工具：将游标结果转换为字典列表
@@ -43,4 +44,7 @@ def dictfetchall(cursor):
 
 # 把秒转成 mm:ss 格式
 def format_time(sec):
+    if sec is None:
+        return "0:00"
+    sec = int(sec)
     return f"{sec // 60}:{sec % 60:02d}"

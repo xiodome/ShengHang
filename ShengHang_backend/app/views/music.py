@@ -263,7 +263,7 @@ def search_album(request):
         filters.append("a.album_title LIKE %s")
         params.append(f"%{album_title}%")
     if singer_name:
-        filters.append("s.singer_name LIKE %s")
+        filters.append("sg.singer_name LIKE %s")
         params.append(f"%{singer_name}%")
 
 
