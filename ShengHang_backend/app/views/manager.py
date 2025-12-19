@@ -193,7 +193,113 @@ def admin_delete_singer(request):
 
 
 # ================================
-# 3. 新增专辑
+# 3. 修改歌手信息（名称、类型、国籍、生日和简介）
+# ================================
+@csrf_exempt
+def admin_update_singer(request):
+    # --------------------------
+    # 1. 检查管理员状态
+    # --------------------------
+    ok, resp = require_admin(request)
+    if not ok:
+        return resp
+
+    if request.method != "POST":
+        return json_cn({"error": "POST required"}, 400)
+
+    # --------------------------
+    # 2. 获取数据
+    # --------------------------
+    try:
+        data = json.loads(request.body)
+    except:
+        data = request.POST
+
+    # --------------------------
+    # 3. 校验 singer_id (必须存在)
+    # --------------------------
+    if "singer_id" in data:
+        singer_id = data.get("singer_id")
+    else:
+        return json_cn({"error": "未检测到歌手id"}, 400)
+
+    # 先检查数据库中是否有这个人
+    check_sql = "SELECT singer_name FROM Singer WHERE singer_id = %s"
+    with connection.cursor() as cursor:
+        cursor.execute(check_sql, [singer_id])
+        row = cursor.fetchone()
+
+    if not row:
+        return json_cn({"error": "该歌手不存在"}, 404)
+
+    old_name = row[0]  # 用于返回提示
+
+    # --------------------------
+    # 4. 动态构建 UPDATE 语句
+    # --------------------------
+    # 定义允许修改的字段
+    allowed_fields = ["singer_name", "type", "country", "birthday", "introduction"]
+
+    update_clauses = []  # 存 "field = %s"
+    params = []  # 存具体的值
+
+    for field in allowed_fields:
+        # 只有当前端传了这个字段时，才去更新它
+        if field in data:
+            value = data.get(field)
+
+            # 特殊处理：如果前端传空字符串给可空的字段，视为将其设为 NULL
+            if field in ["country", "birthday", "introduction"] and value == "":
+                value = None
+
+            update_clauses.append(f"{field} = %s")
+            params.append(value)
+
+    # 如果没有任何字段需要更新
+    if not update_clauses:
+        return json_cn({"error": "未检测到任何需要修改的字段"}, 400)
+
+    # 拼接 SQL: UPDATE Singer SET field1=%s, field2=%s WHERE singer_id=%s
+    sql = f"UPDATE Singer SET {', '.join(update_clauses)} WHERE singer_id = %s"
+
+    # 把 ID 加到参数列表的最后，对应 WHERE 子句
+    params.append(singer_id)
+
+    # --------------------------
+    # 5. 执行更新
+    # --------------------------
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params)
+
+        add_system_log(
+            action=f"成功修改歌手信息: {old_name}",
+            target_table="Singer",
+            target_id=singer_id,
+            result="success"
+        )
+
+        return json_cn({
+            "message": "歌手信息修改成功",
+            "singer_id": singer_id,
+            "original_name": old_name,
+            "updated_fields": [k for k in data.keys() if k in allowed_fields]
+        })
+
+    except Exception as e:
+        add_system_log(
+            action=f"修改歌手信息失败: {old_name}",
+            target_table="Singer",
+            target_id=singer_id,
+            result="fail"
+        )
+
+        return json_cn({"error": str(e)}, 500)
+    
+
+
+# ================================
+# 4. 新增专辑
 # ================================
 @csrf_exempt
 def admin_add_album(request):
@@ -308,7 +414,7 @@ def admin_add_album(request):
 
 
 # ================================
-# 4. 删除专辑
+# 5. 删除专辑
 # ================================
 @csrf_exempt
 def admin_delete_album(request):
@@ -388,7 +494,129 @@ def admin_delete_album(request):
 
 
 # ================================
-# 5. 添加歌曲
+# 6. 修改专辑信息（名称、歌手、发行日期、url地址和解释信息）
+# ================================
+@csrf_exempt
+def admin_update_album(request):
+    # --------------------------
+    # 1. 检查管理员状态
+    # --------------------------
+    ok, resp = require_admin(request)
+    if not ok:
+        return resp
+
+    if request.method != "POST":
+        return json_cn({"error": "POST required"}, 400)
+
+    # --------------------------
+    # 2. 获取数据
+    # --------------------------
+    try:
+        data = json.loads(request.body)
+    except:
+        data = request.POST
+
+    # --------------------------
+    # 3. 校验 album_id (必须存在)
+    # --------------------------
+    if "album_id" in data:
+        album_id = data.get("album_id")
+    else:
+        return json_cn({"error": "未检测到专辑id"}, 400)
+
+    # 先检查数据库中是否有这张专辑
+    check_sql = "SELECT album_title FROM Album WHERE album_id = %s"
+    with connection.cursor() as cursor:
+        cursor.execute(check_sql, [album_id])
+        row = cursor.fetchone()
+
+    if not row:
+        return json_cn({"error": "该专辑不存在"}, 404)
+
+    old_title = row[0]  # 用于返回提示
+
+    # --------------------------
+    # 4. 动态构建 UPDATE 语句
+    # --------------------------
+    # 定义允许修改的字段
+    allowed_fields = ["album_title", "singer_id", "release_date", "cover_url", "description"]
+
+    update_clauses = []  # 存 "field = %s"
+    params = []  # 存具体的值
+
+    for field in allowed_fields:
+        # 只有当前端传了这个字段时，才去更新它
+        if field in data:
+            value = data.get(field)
+
+            # 特殊处理：如果前端传空字符串给可空的字段，视为将其设为 NULL
+            if field in ["description"] and value == "":
+                value = None
+
+            # 特殊处理：如果前端传空字符串给不可空但是有默认值的字段，视为设为默认值
+            if field in ["release_date", "cover_url"] and value == "":
+                if field == "release_date":
+                    value = '1970-01-01'
+                elif field == "cover_url":
+                    value = '/images/default_album_cover.jpg'
+
+            # 特殊判断：外键一定要存在
+            if field in ["singer_id"]:
+                check_singer_sql = "SELECT singer_name FROM Singer WHERE singer_id = %s"
+                with connection.cursor() as cursor:
+                    cursor.execute(check_singer_sql, [value])
+                    row = cursor.fetchone()
+
+                if not row:
+                    return json_cn({"error": "修改信息中的歌手不存在"}, 404)
+
+            update_clauses.append(f"{field} = %s")
+            params.append(value)
+
+    # 如果没有任何字段需要更新
+    if not update_clauses:
+        return json_cn({"error": "未检测到任何需要修改的字段"}, 400)
+
+    # 拼接 SQL: UPDATE Album SET field1=%s, field2=%s WHERE album_id=%s
+    sql = f"UPDATE Album SET {', '.join(update_clauses)} WHERE album_id = %s"
+
+    # 把 ID 加到参数列表的最后，对应 WHERE 子句
+    params.append(album_id)
+
+    # --------------------------
+    # 5. 执行更新
+    # --------------------------
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params)
+
+        add_system_log(
+            action=f"成功修改专辑信息: {old_title}",
+            target_table="Album",
+            target_id=album_id,
+            result="success"
+        )
+
+        return json_cn({
+            "message": "专辑信息修改成功",
+            "album_id": album_id,
+            "original_name": old_title,
+            "updated_fields": [k for k in data.keys() if k in allowed_fields]
+        })
+    except Exception as e:
+        add_system_log(
+            action=f"修改专辑信息失败: {old_title}",
+            target_table="Album",
+            target_id=album_id,
+            result="fail"
+        )
+
+        return json_cn({"error": str(e)}, 500)
+    
+
+
+# ================================
+# 7. 添加歌曲
 # ================================
 @csrf_exempt
 def admin_add_song(request):
@@ -509,7 +737,7 @@ def admin_add_song(request):
 
 
 # ================================
-# 6. 删除歌曲
+# 8. 删除歌曲
 # ================================
 @csrf_exempt
 def admin_delete_song(request):
@@ -609,232 +837,9 @@ def admin_delete_song(request):
         return json_cn({"error": str(e)}, 500)
 
 
-# ================================
-# 7. 修改歌手信息（名称、类型、国籍、生日和简介）
-# ================================
-@csrf_exempt
-def admin_update_singer(request):
-    # --------------------------
-    # 1. 检查管理员状态
-    # --------------------------
-    ok, resp = require_admin(request)
-    if not ok:
-        return resp
-
-    if request.method != "POST":
-        return json_cn({"error": "POST required"}, 400)
-
-    # --------------------------
-    # 2. 获取数据
-    # --------------------------
-    try:
-        data = json.loads(request.body)
-    except:
-        data = request.POST
-
-    # --------------------------
-    # 3. 校验 singer_id (必须存在)
-    # --------------------------
-    if "singer_id" in data:
-        singer_id = data.get("singer_id")
-    else:
-        return json_cn({"error": "未检测到歌手id"}, 400)
-
-    # 先检查数据库中是否有这个人
-    check_sql = "SELECT singer_name FROM Singer WHERE singer_id = %s"
-    with connection.cursor() as cursor:
-        cursor.execute(check_sql, [singer_id])
-        row = cursor.fetchone()
-
-    if not row:
-        return json_cn({"error": "该歌手不存在"}, 404)
-
-    old_name = row[0]  # 用于返回提示
-
-    # --------------------------
-    # 4. 动态构建 UPDATE 语句
-    # --------------------------
-    # 定义允许修改的字段
-    allowed_fields = ["singer_name", "type", "country", "birthday", "introduction"]
-
-    update_clauses = []  # 存 "field = %s"
-    params = []  # 存具体的值
-
-    for field in allowed_fields:
-        # 只有当前端传了这个字段时，才去更新它
-        if field in data:
-            value = data.get(field)
-
-            # 特殊处理：如果前端传空字符串给可空的字段，视为将其设为 NULL
-            if field in ["country", "birthday", "introduction"] and value == "":
-                value = None
-
-            update_clauses.append(f"{field} = %s")
-            params.append(value)
-
-    # 如果没有任何字段需要更新
-    if not update_clauses:
-        return json_cn({"error": "未检测到任何需要修改的字段"}, 400)
-
-    # 拼接 SQL: UPDATE Singer SET field1=%s, field2=%s WHERE singer_id=%s
-    sql = f"UPDATE Singer SET {', '.join(update_clauses)} WHERE singer_id = %s"
-
-    # 把 ID 加到参数列表的最后，对应 WHERE 子句
-    params.append(singer_id)
-
-    # --------------------------
-    # 5. 执行更新
-    # --------------------------
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute(sql, params)
-
-        add_system_log(
-            action=f"成功修改歌手信息: {old_name}",
-            target_table="Singer",
-            target_id=singer_id,
-            result="success"
-        )
-
-        return json_cn({
-            "message": "歌手信息修改成功",
-            "singer_id": singer_id,
-            "original_name": old_name,
-            "updated_fields": [k for k in data.keys() if k in allowed_fields]
-        })
-
-    except Exception as e:
-        add_system_log(
-            action=f"修改歌手信息失败: {old_name}",
-            target_table="Singer",
-            target_id=singer_id,
-            result="fail"
-        )
-
-        return json_cn({"error": str(e)}, 500)
 
 # ================================
-# 8. 修改专辑信息（名称、歌手、发行日期、url地址和解释信息）
-# ================================
-@csrf_exempt
-def admin_update_album(request):
-    # --------------------------
-    # 1. 检查管理员状态
-    # --------------------------
-    ok, resp = require_admin(request)
-    if not ok:
-        return resp
-
-    if request.method != "POST":
-        return json_cn({"error": "POST required"}, 400)
-
-    # --------------------------
-    # 2. 获取数据
-    # --------------------------
-    try:
-        data = json.loads(request.body)
-    except:
-        data = request.POST
-
-    # --------------------------
-    # 3. 校验 album_id (必须存在)
-    # --------------------------
-    if "album_id" in data:
-        album_id = data.get("album_id")
-    else:
-        return json_cn({"error": "未检测到专辑id"}, 400)
-
-    # 先检查数据库中是否有这张专辑
-    check_sql = "SELECT album_title FROM Album WHERE album_id = %s"
-    with connection.cursor() as cursor:
-        cursor.execute(check_sql, [album_id])
-        row = cursor.fetchone()
-
-    if not row:
-        return json_cn({"error": "该专辑不存在"}, 404)
-
-    old_title = row[0]  # 用于返回提示
-
-    # --------------------------
-    # 4. 动态构建 UPDATE 语句
-    # --------------------------
-    # 定义允许修改的字段
-    allowed_fields = ["album_title", "singer_id", "release_date", "cover_url", "description"]
-
-    update_clauses = []  # 存 "field = %s"
-    params = []  # 存具体的值
-
-    for field in allowed_fields:
-        # 只有当前端传了这个字段时，才去更新它
-        if field in data:
-            value = data.get(field)
-
-            # 特殊处理：如果前端传空字符串给可空的字段，视为将其设为 NULL
-            if field in ["description"] and value == "":
-                value = None
-
-            # 特殊处理：如果前端传空字符串给不可空但是有默认值的字段，视为设为默认值
-            if field in ["release_date", "cover_url"] and value == "":
-                if field == "release_date":
-                    value = '1970-01-01'
-                elif field == "cover_url":
-                    value = '/images/default_album_cover.jpg'
-
-            # 特殊判断：外键一定要存在
-            if field in ["singer_id"]:
-                check_singer_sql = "SELECT singer_name FROM Singer WHERE singer_id = %s"
-                with connection.cursor() as cursor:
-                    cursor.execute(check_singer_sql, [value])
-                    row = cursor.fetchone()
-
-                if not row:
-                    return json_cn({"error": "修改信息中的歌手不存在"}, 404)
-
-            update_clauses.append(f"{field} = %s")
-            params.append(value)
-
-    # 如果没有任何字段需要更新
-    if not update_clauses:
-        return json_cn({"error": "未检测到任何需要修改的字段"}, 400)
-
-    # 拼接 SQL: UPDATE Album SET field1=%s, field2=%s WHERE album_id=%s
-    sql = f"UPDATE Album SET {', '.join(update_clauses)} WHERE album_id = %s"
-
-    # 把 ID 加到参数列表的最后，对应 WHERE 子句
-    params.append(album_id)
-
-    # --------------------------
-    # 5. 执行更新
-    # --------------------------
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute(sql, params)
-
-        add_system_log(
-            action=f"成功修改专辑信息: {old_title}",
-            target_table="Album",
-            target_id=album_id,
-            result="success"
-        )
-
-        return json_cn({
-            "message": "专辑信息修改成功",
-            "album_id": album_id,
-            "original_name": old_title,
-            "updated_fields": [k for k in data.keys() if k in allowed_fields]
-        })
-    except Exception as e:
-        add_system_log(
-            action=f"修改专辑信息失败: {old_title}",
-            target_table="Album",
-            target_id=album_id,
-            result="fail"
-        )
-
-        return json_cn({"error": str(e)}, 500)
-
-# ================================
-# 8. 修改歌曲信息（歌曲名、专辑信息、持续时间、url地址和播放次数）
+# 9. 修改歌曲信息（歌曲名、专辑信息、持续时间、url地址和播放次数）
 # ================================
 @csrf_exempt
 def admin_update_song(request):
@@ -950,7 +955,7 @@ def admin_update_song(request):
 
 
 # ================================
-# 9. 查看系统日志
+# 10. 查看系统日志
 # ================================
 @csrf_exempt
 def get_system_logs(request):
@@ -1054,13 +1059,13 @@ def get_system_logs(request):
     })
 
 
-# ============================================================
-# 10. 获取用户行为统计 (管理员)
+# -------------------------------------------------
+# 11. 获取用户行为统计 (管理员)
 # 功能：
 # 1. 统计指定时间段内的总数 (新增用户、播放、评论、收藏、建歌单)
 # 2. 获取每日趋势图数据 (按天分组统计)
 # 3. 获取最活跃用户排行 (按播放量排序)
-# ============================================================
+# -------------------------------------------------
 @csrf_exempt
 def get_user_behavior_stats(request):
     # 1. 权限检查
@@ -1091,10 +1096,10 @@ def get_user_behavior_stats(request):
 
     with connection.cursor() as cursor:
 
-        # =================================================
+        # -------------------------------------------------
         # Part A: 数据概览 (Dashboard Summary)
         # 统计该时间段内的总量
-        # =================================================
+        # -------------------------------------------------
         sql_summary = """
                       SELECT (SELECT COUNT(*) FROM User WHERE register_time BETWEEN %s AND %s)     as new_users, \
                              (SELECT COUNT(*) FROM PlayHistory WHERE play_time BETWEEN %s AND %s)  as total_plays, \
@@ -1109,10 +1114,10 @@ def get_user_behavior_stats(request):
         summary_row = dictfetchall(cursor)[0]
         stats_data['summary'] = summary_row
 
-        # =================================================
+        # -------------------------------------------------
         # Part B: 每日趋势 (Daily Trend)
         # 用于前端画折线图: x轴是日期, y轴是数量
-        # =================================================
+        # -------------------------------------------------
 
         # 1. 每日播放量
         sql_trend_play = """
@@ -1161,10 +1166,10 @@ def get_user_behavior_stats(request):
             "interactions": trend_interaction
         }
 
-        # =================================================
+        # -------------------------------------------------
         # Part C: 活跃用户排行 (Top Active Users)
         # 找出这段时间内听歌最多的前10名用户
-        # =================================================
+        # -------------------------------------------------
         sql_top_users = """
                         SELECT u.user_id, u.user_name, u.email, COUNT(ph.play_id) as play_count
                         FROM PlayHistory ph
@@ -1186,7 +1191,7 @@ def get_user_behavior_stats(request):
 
 
 # ============================================================
-# 11. 获取特定用户的详细行为统计 (用户画像)
+# 12. 获取特定用户的详细行为统计 (用户画像)
 # 功能：
 # 1. 基础概览：听歌时长、评论数、收藏数、被关注数
 # 2. 听歌偏好：最常听的歌手、最常听的风格(基于歌手类型)
@@ -1226,9 +1231,9 @@ def get_specific_user_stats(request):
 
     with connection.cursor() as cursor:
 
-        # =================================================
+        # -------------------------------------------------
         # Part 0: 用户基本信息确认
-        # =================================================
+        # -------------------------------------------------
         sql_user_info = "SELECT user_name, email, register_time, status FROM User WHERE user_id = %s"
         cursor.execute(sql_user_info, [target_user_id])
         user_info = dictfetchall(cursor)
@@ -1236,10 +1241,10 @@ def get_specific_user_stats(request):
             return json_cn({"error": "用户不存在"}, 404)
         stats['user_info'] = user_info[0]
 
-        # =================================================
+        # -------------------------------------------------
         # Part A: 行为概览 (Summary)
         # 统计该时间段内的各项核心指标
-        # =================================================
+        # -------------------------------------------------
         # 使用 COALESCE 确保 SUM 返回 0 而不是 None
         sql_summary = """
                       SELECT (SELECT COUNT(*) \
@@ -1278,9 +1283,9 @@ def get_specific_user_stats(request):
         total_sec = stats['behavior_summary']['total_duration_sec']
         stats['behavior_summary']['total_duration_min'] = round(total_sec / 60, 1)
 
-        # =================================================
+        # -------------------------------------------------
         # Part B: 听歌偏好 (Preferences)
-        # =================================================
+        # -------------------------------------------------
 
         # 1. 最常听的歌手 (Top Artist)
         # 关联路径: PlayHistory -> Song -> Song_Singer -> Singer
@@ -1314,10 +1319,10 @@ def get_specific_user_stats(request):
         hour_data = dictfetchall(cursor)
         stats['peak_hour'] = hour_data[0]['hour_of_day'] if hour_data else None
 
-        # =================================================
+        # -------------------------------------------------
         # Part C: 每日活跃趋势 (Activity Trend)
         # 用于生成该用户的活跃度折线图
-        # =================================================
+        # -------------------------------------------------
         sql_trend = """
                     SELECT DATE_FORMAT(play_time, '%%Y-%%m-%%d') as date_str,
                            COUNT(*)                              as plays,
@@ -1331,10 +1336,10 @@ def get_specific_user_stats(request):
         cursor.execute(sql_trend, [target_user_id, start_dt, end_dt])
         stats['daily_trend'] = dictfetchall(cursor)
 
-        # =================================================
+        # -------------------------------------------------
         # Part D: 社交影响力 (Social)
         # 统计粉丝数和关注数 (截止到目前，不限时间段，因为这是累积数据)
-        # =================================================
+        # -------------------------------------------------
         sql_social = """
                      SELECT (SELECT COUNT(*) FROM UserFollow WHERE follower_id = %s) as following_count, \
                             (SELECT COUNT(*) FROM UserFollow WHERE followed_id = %s) as followers_count \
@@ -1345,7 +1350,7 @@ def get_specific_user_stats(request):
     return json_cn(stats)
 
 # ================================
-# 12. 获取待审核评论列表
+# 13. 获取待审核评论列表
 # ================================
 @csrf_exempt
 def admin_get_pending_comments(request):
@@ -1395,7 +1400,7 @@ def admin_get_pending_comments(request):
     })
 
 # ================================
-# 13. 管理员审核评论
+# 14. 管理员审核评论
 # ================================
 @csrf_exempt
 def admin_audit_comment(request):

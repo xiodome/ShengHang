@@ -208,42 +208,6 @@ const MusicAPI = {
     // 获取歌曲详情
     getSongProfile: (songId) => apiRequest(`/song/profile/${songId}/`, {
         method: 'GET'
-    }),
-
-    // 管理员添加歌手
-    adminAddSinger: (singerData) => apiRequest('/Administrator/singer/admin_add_singer/', {
-        method: 'POST',
-        body: singerData
-    }),
-
-    // 管理员删除歌手
-    adminDeleteSinger: (singerId, singerName) => apiRequest('/Administrator/singer/admin_delete_singer/', {
-        method: 'POST',
-        body: { singer_id: singerId, singer_name: singerName }
-    }),
-
-    // 管理员添加专辑
-    adminAddAlbum: (albumData) => apiRequest('/Administrator/album/admin_add_album/', {
-        method: 'POST',
-        body: albumData
-    }),
-
-    // 管理员删除专辑
-    adminDeleteAlbum: (albumId) => apiRequest('/Administrator/album/admin_delete_album/', {
-        method: 'POST',
-        body: { album_id: albumId }
-    }),
-
-    // 管理员添加歌曲
-    adminAddSong: (songData) => apiRequest('/Administrator/song/admin_add_song/', {
-        method: 'POST',
-        body: songData
-    }),
-
-    // 管理员删除歌曲
-    adminDeleteSong: (songId) => apiRequest('/Administrator/song/admin_delete_song/', {
-        method: 'POST',
-        body: { song_id: songId }
     })
 };
 
@@ -390,6 +354,13 @@ const CommentAPI = {
     getCommentStats: (targetType, targetId) => 
         apiRequest(`/comment/get_comment_stats/?target_type=${targetType}&target_id=${targetId}`, {
             method: 'GET'
+        }),
+
+    // 举报评论
+    reportComment: (commentId, reason = '') => 
+        apiRequest('/comment/report_comment/', {
+            method: 'POST',
+            body: { comment_id: commentId, reason }
         })
 };
 
@@ -437,6 +408,93 @@ const PlayHistoryAPI = {
     getUserActivityTrend: (period = 'day') => apiRequest('/playHistory/get_user_activity_trend/', {
         method: 'POST',
         body: { period }
+    })
+};
+
+
+const AdministratorAPI = {
+    // 添加歌手
+    adminAddSinger: (singerData) => apiRequest('/Administrator/singer/admin_add_singer/', {
+        method: 'POST',
+        body: singerData
+    }),
+
+    // 删除歌手
+    adminDeleteSinger: (singerId, singerName) => apiRequest('/Administrator/singer/admin_delete_singer/', {
+        method: 'POST',
+        body: { singer_id: singerId, singer_name: singerName }
+    }),
+
+    // 修改歌手信息
+    adminUpdateSinger: (singerData) => apiRequest('/Administrator/singer/admin_update_singer/', {
+        method: 'POST',
+        body: singerData
+    }),
+
+    // 添加专辑
+    adminAddAlbum: (albumData) => apiRequest('/Administrator/album/admin_add_album/', {
+        method: 'POST',
+        body: albumData
+    }),
+
+    // 删除专辑
+    adminDeleteAlbum: (albumId) => apiRequest('/Administrator/album/admin_delete_album/', {
+        method: 'POST',
+        body: { album_id: albumId }
+    }),
+
+    // 修改专辑信息
+    adminUpdateAlbum: (albumData) => apiRequest('/Administrator/album/admin_update_album/', {
+        method: 'POST',
+        body: albumData
+    }),
+
+    // 添加歌曲
+    adminAddSong: (songData) => apiRequest('/Administrator/song/admin_add_song/', {
+        method: 'POST',
+        body: songData
+    }),
+
+    // 删除歌曲
+    adminDeleteSong: (songId) => apiRequest('/Administrator/song/admin_delete_song/', {
+        method: 'POST',
+        body: { song_id: songId }
+    }),
+
+    // 修改歌曲信息
+    adminUpdateSong: (songData) => apiRequest('/Administrator/song/admin_update_song/', {
+        method: 'POST',
+        body: songData
+    }),
+
+    // 查看系统日志
+    getSystemLogs: (filters = {}) => apiRequest('/Administrator/get_system_logs/', {
+        method: 'POST',
+        body: filters
+    }),
+
+    // 获取用户行为统计
+    getUserBehaviorStats: (filters = {}) => apiRequest('/Administrator/user/get_user_behavior_stats/', {
+        method: 'POST',
+        body: filters
+    }),
+
+    // 获取特定用户的详细行为统计
+    getSpecificUserStats: (targetUserId, filters = {}) => apiRequest('/Administrator/user/get_specific_user_stats/', {
+        method: 'POST',
+        body: { target_user_id: targetUserId, ...filters }
+    }),
+
+    // 获取待审核评论列表
+    getPendingComments: (page = 1, pageSize = 20) => apiRequest('/Administrator/comment/admin_get_pending_comments/', {
+        method: 'POST',
+        body: { page, page_size: pageSize }
+    }),
+
+    // 管理员审核评论
+    auditComment: (commentId, result, banUser = false) => apiRequest('/Administrator/comment/admin_audit_comment/', {
+        method: 'POST',
+        body: { comment_id: commentId, result, ban_user: banUser }
     })
 };
 
