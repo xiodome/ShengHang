@@ -1,4 +1,6 @@
 # 存储各种工具方法
+import datetime
+from django.db import connection
 from django.http import JsonResponse
 import hashlib
 
@@ -48,3 +50,26 @@ def format_time(sec):
         return "0:00"
     sec = int(sec)
     return f"{sec // 60}:{sec % 60:02d}"
+
+# 通用日志记录函数
+def add_system_log(action, target_table=None, target_id=None, result='success'):
+    """
+    :param action: 操作具体内容，如 "添加歌手: 周杰伦"
+    :param target_table: 操作的表名，如 "Singer"
+    :param target_id: 操作的记录ID，如 10
+    :param result: 'success' 或 'fail'
+    """
+    try:
+        sql = """
+              INSERT INTO SystemLog (action, target_table, target_id, result, action_time)
+              VALUES (%s, %s, %s, %s, %s) \
+              """
+        now = datetime.datetime.now()
+
+        # 使用一个新的 cursor，防止干扰外部事务
+        with connection.cursor() as cursor:
+            cursor.execute(sql, [action, target_table, target_id, result, now])
+
+    except Exception as e:
+        # 日志记录失败不应该影响主业务流程，所以这里只打印错误，不抛出异常
+        print(f"日志记录失败: {e}")
