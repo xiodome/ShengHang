@@ -390,11 +390,12 @@ const CommentAPI = {
 // ====================================
 // 播放记录API
 // ====================================
+DEFALUT_PLAY_DURATION = 500
 const PlayHistoryAPI = {
     // 记录播放
     recordPlay: (songId, playDuration = 0) => apiRequest('/playHistory/record_play/', {
         method: 'POST',
-        body: { song_id: songId, play_duration: playDuration }
+        body: { song_id: songId, play_duration: DEFALUT_PLAY_DURATION }
     }),
 
     // 获取播放统计
