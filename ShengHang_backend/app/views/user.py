@@ -338,7 +338,7 @@ def profile(request, owner_id):
     # 2. 查询个人信息
     # --------------------------
     sql = """
-        SELECT user_name, gender, birthday, region, email, profile 
+        SELECT user_name, gender, birthday, region, email, profile, visibility 
         FROM User WHERE user_id = %s
     """
 
@@ -349,7 +349,7 @@ def profile(request, owner_id):
         if not row:
             return json_cn({"error": "用户不存在"}, 404)
 
-        username, gender, birthday, region, email, profile_text = row
+        username, gender, birthday, region, email, profile_text, visibility = row
 
     # --------------------------
     # 3. 处理空值
@@ -371,7 +371,8 @@ def profile(request, owner_id):
         "region": region,
         "email": email,
         "profile": profile_text,
-        "is_owner": is_owner
+        "is_owner": is_owner,
+        "visibility": visibility
     })
 
 
@@ -917,42 +918,10 @@ def get_user_info(request):
         "user_id": target_user_id
     })
 
-# ================================
-# 16. 管理员界面
-# ================================
-ADMIN_USER_ID = 1  # 可以改成实际管理员 id
-@csrf_exempt
-def admin_profile(request):
-    # --------------------------
-    # 1. 登录校验
-    # --------------------------
-    user_id = request.session.get("user_id")
-    if not user_id:
-        return json_cn({"error": "请先登录"}, 403)
-    elif user_id != ADMIN_USER_ID:
-        return json_cn({"error": "不是管理员账号"}, 403)
-    
-    # --------------------------
-    # 2. 返回管理员信息
-    # --------------------------
-    return json_cn({
-        "message": "管理员界面",
-        "user_id": user_id,
-        "is_admin": True,
-        "available_actions": [
-            "admin_add_singer",
-            "admin_delete_singer",
-            "admin_add_album",
-            "admin_delete_album",
-            "admin_add_song",
-            "admin_delete_song"
-        ]
-    })
-
 
 
 # ================================
-# 17. 修改个人信息可见性
+# 16. 修改个人信息可见性
 # ================================
 @csrf_exempt
 def update_visibility(request):
