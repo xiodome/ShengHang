@@ -352,6 +352,31 @@ def initialize_tables():
         ON DELETE CASCADE;
         """,
 
+        # 触发器
+        # 递归删除子评论触发器
+        # 当评论被删除前，自动删除 parent_id 为该评论ID 的所有子评论
+        # 数据库会因此再次触发本触发器，从而实现递归删除
+        #"""
+        #CREATE TRIGGER delete_comment_reply 
+        #BEFORE DELETE ON Comment
+        #FOR EACH ROW
+        #BEGIN
+        #    DELETE FROM Comment WHERE parent_id = OLD.comment_id;
+        #END;
+        #""",
+
+        # 自动更新触发器
+        """
+        CREATE TRIGGER after_play_insert
+        AFTER INSERT ON PlayHistory
+        FOR EACH ROW
+        BEGIN
+            UPDATE Song 
+            SET play_count = play_count + 1 
+            WHERE song_id = NEW.song_id;
+        END;
+        """,
+
 
         # 删除无用表
         """DROP TABLE django_migrations""",

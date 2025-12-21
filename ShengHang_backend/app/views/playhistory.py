@@ -60,12 +60,7 @@ def record_play(request):
             cursor.execute(sql_insert, [current_user_id, song_id, play_duration])
 
             # 2. 更新歌曲总播放次数 (原子更新)
-            sql_update_song = """
-                              UPDATE Song \
-                              SET play_count = play_count + 1 \
-                              WHERE song_id = %s \
-                              """
-            cursor.execute(sql_update_song, [song_id])
+            # after_play_insert 触发器实现
 
             return json_cn({"message": "播放记录已更新"})
         else:
