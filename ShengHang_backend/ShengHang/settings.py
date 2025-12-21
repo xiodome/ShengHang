@@ -102,7 +102,7 @@ DATABASES = {
         'PORT': 3306,
         'USER': 'u23373273',
         'PASSWORD': 'Aa527791',
-        'NAME': 'try_db23373273',
+        'NAME': 'h_db23373273',
         'OPTIONS': {
             'charset': 'utf8mb4',
         },

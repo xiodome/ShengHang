@@ -623,6 +623,21 @@ body {
     color: #333;
 }
 
+.modal-footer {
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.modal-body {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
 /* 评论详情样式 */
 .comment-detail {
     padding: 10px 0;

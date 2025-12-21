@@ -1282,77 +1282,87 @@
         // 查看评论详情
         async function viewCommentDetail(commentId) {
             try {
-                // 使用带缓存的请求
-                const commentDetail = await DataCache.cachedRequest(
+                const data = await DataCache.cachedRequest(
                     `commentDetail_${commentId}`,
                     () => CommentAPI.getCommentDetail(commentId),
-                    null, // 不显示加载状态，因为是在模态框中
+                    null,
                     '加载评论详情失败'
                 );
-                
-                // 缓存结果
-                DataCache.set(`commentDetail_${commentId}`, commentDetail);
-                
-                // 创建模态框内容
+                const comment = data.comment;
+                const replies = data.replies || [];
                 const modalContent = `
-                    <div class="modal-header">
-                        <h3>评论详情</h3>
-                        <button class="modal-close" onclick="closeModal('commentDetailModal')">&times;</button>
-                    </div>
                     <div class="modal-body">
                         <div class="comment-detail">
+                            <!-- 主评论 -->
                             <div class="comment-detail-header">
                                 <div class="user-info">
-                                    <span class="username">${commentDetail.user_name}</span>
-                                    <span class="time">${commentDetail.comment_time}</span>
+                                    <span class="username">${comment.user_name}</span>
+                                    <span class="time">${comment.comment_time}</span>
                                 </div>
                                 <div class="target-info">
-                                    评论于: ${commentDetail.target_type === 'song' ? '歌曲' : commentDetail.target_type === 'album' ? '专辑' : '歌单'} - ${commentDetail.target_title || '未知'}
+                                    评论对象：
+                                    ${
+                                        comment.target_type === 'song'
+                                            ? '歌曲'
+                                            : comment.target_type === 'album'
+                                                ? '专辑'
+                                                : '歌单'
+                                    }
+                                    （ID: ${comment.target_id}）
                                 </div>
                             </div>
                             <div class="comment-detail-content">
-                                ${commentDetail.content}
+                                ${comment.content}
                             </div>
                             <div class="comment-detail-stats">
                                 <div class="stat-item">
-                                    <span class="stat-label">点赞数:</span>
-                                    <span class="stat-value">${commentDetail.like_count || 0}</span>
+                                    <span class="stat-label">点赞数：</span>
+                                    <span class="stat-value">${comment.like_count || 0}</span>
                                 </div>
                                 <div class="stat-item">
-                                    <span class="stat-label">回复数:</span>
-                                    <span class="stat-value">${commentDetail.reply_count || 0}</span>
-                                </div>
-                                <div class="stat-item">
-                                    <span class="stat-label">状态:</span>
-                                    <span class="stat-value">${commentDetail.is_deleted ? '已删除' : '正常'}</span>
+                                    <span class="stat-label">回复数：</span>
+                                    <span class="stat-value">${replies.length}</span>
                                 </div>
                             </div>
-                            ${commentDetail.parent_comment ? `
-                            <div class="parent-comment">
-                                <h4>回复的评论:</h4>
-                                <div class="parent-comment-content">
-                                    <div class="parent-comment-header">
-                                        <span class="username">${commentDetail.parent_comment.user_name}</span>
-                                        <span class="time">${commentDetail.parent_comment.comment_time}</span>
-                                    </div>
-                                    <div class="content">${commentDetail.parent_comment.content}</div>
-                                </div>
+                            <!-- 回复列表 -->
+                            <div class="reply-list">
+                                <h4>回复 (${replies.length})</h4>
+                                ${
+                                    replies.length === 0
+                                        ? `<div class="empty-tip">暂无回复</div>`
+                                        : replies.map(reply => `
+                                            <div class="reply-item">
+                                                <div class="reply-header">
+                                                    <span class="username">${reply.user_name}</span>
+                                                    <span class="time">${reply.comment_time}</span>
+                                                </div>
+                                                <div class="reply-content">
+                                                    ${reply.content}
+                                                </div>
+                                                <div class="reply-like">
+                                                    <button onclick="likeComment(${reply.comment_id})">点赞</button>
+                                                    👍 ${reply.like_count || 0}
+                                                </div>
+                                            </div>
+                                        `).join('')
+                                }
                             </div>
-                            ` : ''}
+
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" onclick="closeModal('commentDetailModal')">关闭</button>
+                        <button class="btn btn-secondary" onclick="closeModal('commentDetailModal')">
+                            关闭
+                        </button>
                     </div>
                 `;
-                
-                // 显示模态框
                 showModal('commentDetailModal', modalContent);
             } catch (error) {
                 showAlert('加载评论详情失败', 'error');
                 console.error('加载评论详情失败:', error);
             }
         }
+
         
         // 显示模态框
         function showModal(modalId, content) {

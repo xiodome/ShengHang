@@ -3,6 +3,9 @@ from django.db import connection
 def initialize_tables():
     """
     用于修复数据库中 Django 无法设置的默认值。
+    修复数据库中自动生成的奇怪外键和级联删除属性(每次新建数据库要重新改这些奇奇怪怪外键名)
+    删除django生成了无用表
+    定义了触发器
     此函数会：
     """
 
@@ -47,18 +50,6 @@ def initialize_tables():
 
 
         # album表
-        # 修改表中错误的外键名字
-        """
-        ALTER TABLE album
-        DROP FOREIGN KEY Album_singer_id_id_a2beeda4_fk_Singer_singer_id;
-
-        ALTER TABLE album
-        CHANGE COLUMN singer_id_id singer_id INT NOT NULL;
-
-        ALTER TABLE album
-        ADD CONSTRAINT Album_singer_id_fk FOREIGN KEY (singer_id) REFERENCES singer(singer_id);
-        """,
-
         # 修复发行日期
         """
         ALTER TABLE album
@@ -75,18 +66,6 @@ def initialize_tables():
 
 
         # song表
-        # 修改表中错误的外键名字
-        """
-        ALTER TABLE song
-        DROP FOREIGN KEY Song_album_id_id_0b342a3e_fk_Album_album_id;
-
-        ALTER TABLE song
-        CHANGE COLUMN album_id_id album_id INT NOT NULL;
-
-        ALTER TABLE song
-        ADD CONSTRAINT Song_album_id_fk FOREIGN KEY (album_id) REFERENCES album(album_id);
-        """,
-
         # 修复歌曲总播放次数
         """
         ALTER TABLE song
@@ -95,18 +74,6 @@ def initialize_tables():
         """,
 
         # songlist表
-        # 修改表中错误的外键名字
-        """
-        ALTER TABLE songlist
-        DROP FOREIGN KEY Songlist_user_id_id_c4283d81_fk_User_user_id;
-
-        ALTER TABLE songlist
-        CHANGE COLUMN user_id_id user_id INT NOT NULL;
-
-        ALTER TABLE songlist
-        ADD CONSTRAINT Songlist_user_id_fk FOREIGN KEY (user_id) REFERENCES user(user_id);
-        """,
-
         # 修复创建时间
         """
         ALTER TABLE songlist
@@ -137,18 +104,6 @@ def initialize_tables():
 
 
         # comment表
-        # 修改表中错误的外键名字
-        """
-        ALTER TABLE comment
-        DROP FOREIGN KEY Comment_user_id_id_92454809_fk_User_user_id;
-
-        ALTER TABLE comment
-        CHANGE COLUMN user_id_id user_id INT NOT NULL;
-
-        ALTER TABLE comment
-        ADD CONSTRAINT Comment_user_id_fk FOREIGN KEY (user_id) REFERENCES user(user_id);
-        """,
-
         # 修复评论目标类型
         """
         ALTER TABLE comment.py
@@ -249,6 +204,165 @@ def initialize_tables():
         MODIFY result ENUM('success','fail')
         NOT NULL
         """,
+
+        # 修改对应外键名称和属性
+        # album表
+        """
+        ALTER TABLE album
+        DROP FOREIGN KEY Album_singer_id_40707949_fk_Singer_singer_id;
+
+        ALTER TABLE album
+        ADD CONSTRAINT Album_singer_id_fk FOREIGN KEY (singer_id) REFERENCES singer(singer_id)
+        ON DELETE CASCADE;
+        """,
+
+        # song表
+        # 修改表中错误的外键名字
+        """
+        ALTER TABLE song
+        DROP FOREIGN KEY Song_album_id_12171706_fk_Album_album_id;
+
+        ALTER TABLE song
+        ADD CONSTRAINT Song_album_id_fk FOREIGN KEY (album_id) REFERENCES album(album_id)
+        ON DELETE CASCADE;
+        """,
+
+        # songlist表
+        """
+        ALTER TABLE songlist
+        DROP FOREIGN KEY Songlist_user_id_8a517e4f_fk_User_user_id;
+
+        ALTER TABLE songlist
+        ADD CONSTRAINT Songlist_user_id_fk FOREIGN KEY (user_id) REFERENCES user(user_id)
+        ON DELETE CASCADE;
+        """,
+
+        # comment表
+        """
+        ALTER TABLE comment
+        DROP FOREIGN KEY Comment_user_id_1cbe86a2_fk_User_user_id;
+
+        ALTER TABLE comment
+        ADD CONSTRAINT Comment_user_id_fk FOREIGN KEY (user_id) REFERENCES user(user_id)
+        ON DELETE CASCADE;
+        """,
+
+        # favorite表
+        """
+        ALTER TABLE favorite
+        DROP FOREIGN KEY Favorite_user_id_5febe7a0_fk_User_user_id;
+
+        ALTER TABLE favorite
+        ADD CONSTRAINT Favorite_user_id_fk FOREIGN KEY (user_id) REFERENCES user(user_id)
+        ON DELETE CASCADE;
+        """,
+
+        # playhistory表
+        """
+        ALTER TABLE playhistory
+        DROP FOREIGN KEY PlayHistory_song_id_8d9897de_fk_Song_song_id;
+
+        ALTER TABLE playhistory
+        ADD CONSTRAINT PlayHistory_song_id_fk FOREIGN KEY (song_id) REFERENCES song(song_id)
+        ON DELETE CASCADE;
+        """,
+
+        """
+        ALTER TABLE playhistory
+        DROP FOREIGN KEY PlayHistory_user_id_763a0bf1_fk_User_user_id;
+
+        ALTER TABLE playhistory
+        ADD CONSTRAINT PlayHistory_user_id_fk FOREIGN KEY (user_id) REFERENCES user(user_id)
+        ON DELETE CASCADE;
+        """,
+
+        # userfollow表
+        """
+        ALTER TABLE userfollow
+        DROP FOREIGN KEY UserFollow_followed_id_55f582a4_fk_User_user_id;
+
+        ALTER TABLE userfollow
+        ADD CONSTRAINT UserFollow_followed_id_fk FOREIGN KEY (followed_id) REFERENCES user(user_id)
+        ON DELETE CASCADE;
+        """,
+
+        """
+        ALTER TABLE userfollow
+        DROP FOREIGN KEY UserFollow_follower_id_37f00a2f_fk_User_user_id;
+
+        ALTER TABLE userfollow
+        ADD CONSTRAINT UserFollow_follower_id_fk FOREIGN KEY (follower_id) REFERENCES user(user_id)
+        ON DELETE CASCADE;
+        """,
+
+        # singerfollow表
+        """
+        ALTER TABLE singerfollow
+        DROP FOREIGN KEY SingerFollow_singer_id_9c1efdb2_fk_Singer_singer_id;
+
+        ALTER TABLE singerfollow
+        ADD CONSTRAINT SingerFollow_singer_id_fk FOREIGN KEY (singer_id) REFERENCES singer(singer_id)
+        ON DELETE CASCADE;
+        """,
+
+        """
+        ALTER TABLE singerfollow
+        DROP FOREIGN KEY SingerFollow_user_id_d929e3e8_fk_User_user_id;
+
+        ALTER TABLE singerfollow
+        ADD CONSTRAINT SingerFollow_user_id_fk FOREIGN KEY (user_id) REFERENCES user(user_id)
+        ON DELETE CASCADE;
+        """,
+
+        # songlist_song表
+        """
+        ALTER TABLE songlist_song
+        DROP FOREIGN KEY Songlist_Song_song_id_77173337_fk_Song_song_id;
+
+        ALTER TABLE songlist_song
+        ADD CONSTRAINT Songlist_Song_song_id_fk FOREIGN KEY (song_id) REFERENCES song(song_id)
+        ON DELETE CASCADE;
+        """,
+
+        """
+        ALTER TABLE songlist_song
+        DROP FOREIGN KEY Songlist_Song_songlist_id_8cd98c3a_fk_Songlist_songlist_id;
+
+        ALTER TABLE songlist_song
+        ADD CONSTRAINT Songlist_Song_songlist_id_fk FOREIGN KEY (songlist_id) REFERENCES songlist(songlist_id)
+        ON DELETE CASCADE;
+        """,
+
+        # song_singer表
+        """
+        ALTER TABLE song_singer
+        DROP FOREIGN KEY Song_Singer_singer_id_c7096906_fk_Singer_singer_id;
+
+        ALTER TABLE song_singer
+        ADD CONSTRAINT Song_Singer_singer_id_fk FOREIGN KEY (singer_id) REFERENCES singer(singer_id)
+        ON DELETE CASCADE;
+        """,
+
+        """
+        ALTER TABLE song_singer
+        DROP FOREIGN KEY Song_Singer_song_id_c14193ef_fk_Song_song_id;
+
+        ALTER TABLE song_singer
+        ADD CONSTRAINT Song_Singer_song_id_fk FOREIGN KEY (song_id) REFERENCES song(song_id)
+        ON DELETE CASCADE;
+        """,
+
+
+        # 删除无用表
+        """DROP TABLE django_migrations""",
+        """DROP TABLE django_admin_log""",
+        """DROP TABLE auth_group_permissions""",
+        """DROP TABLE auth_user_groups""",
+        """DROP TABLE auth_group""",
+        """DROP TABLE auth_user_user_permissions""", 
+        """DROP TABLE auth_user""",
+        """DROP TABLE auth_permission""",
+        """DROP TABLE django_content_type""",
     ]
 
     with connection.cursor() as cursor:
